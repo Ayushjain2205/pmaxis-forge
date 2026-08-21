@@ -1,0 +1,19 @@
+{
+  "name": "dsh-pmaxis",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DeepSeek Harness bundle: PMAxis MCP + research-only pmex agent preset",
+  "main": "src/index.js",
+  "files": [
+    "src",
+    "presets",
+    "prompts",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

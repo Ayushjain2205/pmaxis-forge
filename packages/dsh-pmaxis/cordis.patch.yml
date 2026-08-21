@@ -1,0 +1,25 @@
+# PMEX Forge v1: PMAxis MCP on the host plane + research preset as default.
+# Host-plane bash/fs/editor are already disabled by dsh-web-app; the `pmex`
+# preset (copied to ~/.dsh/.agent-presets/pmex) is what sessions actually run.
+
+- insert:
+    - id: forge-preset
+      name: dsh-pmaxis
+    - id: mcp-pmaxis
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: pmaxis
+        transport: stdio
+        command: npx
+        args:
+          - '-y'
+          - '@pmaxis/mcp-server'
+        env:
+          PMAXIS_API_KEY: !!js process.env.PMAXIS_API_KEY ?? ''
+          PMAXIS_API_URL: https://api.pmaxis.trade
+        failOnStartupError: true
+
+- id: agent-presets
+  name: '@deepseek-ai/dsh-agent-presets'
+  config:
+    default: pmex
