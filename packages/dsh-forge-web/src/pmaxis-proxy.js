@@ -10,14 +10,19 @@ const EXACT = new Set([
   '/v1/markets/trending',
   '/v1/markets/new',
   '/v1/markets/search',
+  '/v1/markets/compare',
   '/v1/categories',
+  '/v1/events',
+  '/v1/signals/top',
 ])
 
-const DETAIL = /^\/v1\/markets\/[A-Za-z0-9_-]+(?:\/(?:orderbook|liquidity|stats|summary))?$/
+const DETAIL =
+  /^\/v1\/markets\/[A-Za-z0-9_-]+(?:\/(?:orderbook|liquidity|stats|summary|candles|trades|related|health|sentiment|price-history))?$/
 const CATEGORY_MARKETS = /^\/v1\/categories\/[A-Za-z0-9_-]+\/markets$/
+const EVENT_MARKETS = /^\/v1\/events\/[A-Za-z0-9_-]+\/markets$/
 
 export function isAllowedPath(pathname) {
-  return EXACT.has(pathname) || DETAIL.test(pathname) || CATEGORY_MARKETS.test(pathname)
+  return EXACT.has(pathname) || DETAIL.test(pathname) || CATEGORY_MARKETS.test(pathname) || EVENT_MARKETS.test(pathname)
 }
 
 export function mountPmaxisProxy(ctx) {

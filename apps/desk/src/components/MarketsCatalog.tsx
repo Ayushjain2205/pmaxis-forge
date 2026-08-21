@@ -4,16 +4,19 @@ import {
   CORE_CATEGORIES,
   fetchCatalog,
   fetchCategories,
+  fetchEvents,
   peekCatalog,
   formatPx,
   formatVol,
   marketId,
   marketPrice,
   marketTitle,
+  toggleWatch,
   type CatalogScope,
   type Category,
   type FeedKind,
   type Market,
+  type MarketEvent,
   type Orderbook,
 } from '../lib/pmaxis'
 
@@ -22,6 +25,7 @@ const FEEDS: { id: FeedKind; label: string }[] = [
   { id: 'breaking', label: 'Breaking' },
   { id: 'resolving', label: 'Resolving' },
   { id: 'trending', label: 'Trending' },
+  { id: 'new', label: 'New' },
 ]
 
 export function MarketsCatalog({
@@ -54,6 +58,8 @@ export function MarketsCatalog({
   })
   const [categories, setCategories] = useState<Category[]>(CORE_CATEGORIES)
   const [markets, setMarkets] = useState<Market[]>([])
+  const [events, setEvents] = useState<MarketEvent[]>([])
+  const [watchTick, setWatchTick] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -82,7 +88,13 @@ export function MarketsCatalog({
       ? 'all'
       : scope.kind === 'feed'
         ? `feed:${scope.id}`
-        : `category:${scope.slug}`
+        : scope.kind === 'watching'
+          ? `watching:${watchTick}`
+          : scope.kind === 'events'
+            ? 'events'
+            : scope.kind === 'event'
+              ? `event:${scope.id}`
+              : `category:${scope.slug}`
 
   const load = useCallback(async (next: CatalogScope, signal: AbortSignal, quiet = false) => {
     try {
@@ -90,14 +102,24 @@ export function MarketsCatalog({
         setError(null)
         setLoading(true)
       }
+      if (next.kind === 'events') {
+        const rows = await fetchEvents(signal)
+        if (signal.aborted) return
+        setEvents(rows)
+        setMarkets([])
+        setError(null)
+        return
+      }
       const rows = await fetchCatalog(next, signal)
       if (signal.aborted) return
+      setEvents([])
       setMarkets(rows)
       setError(null)
     } catch (e) {
       if (signal.aborted) return
       setError(e instanceof Error ? e.message : String(e))
       setMarkets([])
+      setEvents([])
     } finally {
       if (!signal.aborted && !quiet) setLoading(false)
     }
@@ -106,13 +128,14 @@ export function MarketsCatalog({
   useEffect(() => {
     const ac = new AbortController()
     const next: CatalogScope = searching ? { kind: 'search', q: debounced } : scope
-    const cached = peekCatalog(next)
+    const cached = next.kind === 'events' || next.kind === 'watching' ? null : peekCatalog(next)
     if (cached) {
       setMarkets(cached)
       setLoading(false)
       setError(null)
     } else {
       setMarkets([])
+      setEvents([])
       setLoading(true)
     }
     void load(next, ac.signal, Boolean(cached))
@@ -134,7 +157,13 @@ export function MarketsCatalog({
       ? 'All'
       : scope.kind === 'feed'
         ? FEEDS.find((f) => f.id === scope.id)?.label ?? scope.id
-        : categories.find((c) => c.slug === scope.slug)?.name ?? scope.slug
+        : scope.kind === 'watching'
+          ? 'Watching'
+          : scope.kind === 'events'
+            ? 'Events'
+            : scope.kind === 'event'
+              ? scope.name
+              : categories.find((c) => c.slug === scope.slug)?.name ?? scope.slug
 
   return (
     <>
@@ -181,6 +210,28 @@ export function MarketsCatalog({
               {feed.label}
             </button>
           ))}
+          <button
+            type="button"
+            aria-pressed={!searching && scope.kind === 'watching'}
+            onClick={() => {
+              setQuery('')
+              setScope({ kind: 'watching' })
+              onPin(null)
+            }}
+          >
+            Watching
+          </button>
+          <button
+            type="button"
+            aria-pressed={!searching && (scope.kind === 'events' || scope.kind === 'event')}
+            onClick={() => {
+              setQuery('')
+              setScope({ kind: 'events' })
+              onPin(null)
+            }}
+          >
+            Events
+          </button>
         </div>
         <div className="pills" role="group" aria-label="Categories">
           {categories.map((cat) => (
@@ -208,10 +259,15 @@ export function MarketsCatalog({
           error={inspectError}
           loading={inspecting}
           onClose={() => onPin(null)}
+          onPin={(id) => onPin(id)}
+          onWatch={(market) => {
+            toggleWatch(market)
+            setWatchTick((n) => n + 1)
+          }}
         />
       ) : (
         <div className="scroll" aria-busy={loading || undefined}>
-          {loading && markets.length === 0 ? (
+          {loading && markets.length === 0 && events.length === 0 ? (
             <div className="skel-list" aria-hidden>
               {Array.from({ length: 8 }, (_, i) => (
                 <div key={i} className="row skel-row">
@@ -234,10 +290,31 @@ export function MarketsCatalog({
               Markets failed to load. Try another filter, or check the host is up.
             </p>
           ) : null}
-          {!loading && !error && markets.length === 0 ? (
-            <p className="empty">No markets in {selectedLabel.toLowerCase()}.</p>
+          {!loading && !error && scope.kind === 'events' && events.length === 0 ? (
+            <p className="empty">No live events.</p>
           ) : null}
-          {markets.map((m) => {
+          {!loading && !error && scope.kind !== 'events' && markets.length === 0 ? (
+            <p className="empty">
+              {scope.kind === 'watching'
+                ? 'Watch a market from inspect to keep it here.'
+                : `No markets in ${selectedLabel.toLowerCase()}.`}
+            </p>
+          ) : null}
+          {scope.kind === 'events' && !searching
+            ? events.map((ev) => (
+                <button
+                  key={ev.id}
+                  type="button"
+                  className="row"
+                  onClick={() => {
+                    setScope({ kind: 'event', id: ev.id, name: ev.title })
+                    onPin(null)
+                  }}
+                >
+                  <span className="q">{ev.title}</span>
+                </button>
+              ))
+            : markets.map((m) => {
             const id = marketId(m)
             return (
               <button
@@ -265,7 +342,7 @@ export function MarketsCatalog({
           aria-label={selected ? `Ask about ${marketTitle(selected)}` : 'Ask about this'}
           onClick={() => selected && onAsk(selected)}
         >
-          {asking ? 'Opening thread…' : 'Ask about this'}
+          {asking ? 'Asking…' : 'Ask about this'}
         </button>
       </div>
     </>

@@ -1,19 +1,23 @@
 import { MarkdownBody } from './MarkdownBody'
 import { groupTurns, toolLabel, type ChatItem } from '../lib/chat'
+import { STARTERS, marketsFromToolText } from '../lib/pmaxis'
 
 function ToolCall({
   name,
   args,
   result,
   ok,
+  onPin,
 }: {
   name: string
   args: string
   result?: string
   ok?: boolean
+  onPin?: (id: string) => void
 }) {
   const pending = result === undefined
   const status = pending ? 'running' : ok === false ? 'failed' : 'done'
+  const hits = result && onPin ? marketsFromToolText(result) : []
   return (
     <details className={`tool tool-${status}`} open={pending || ok === false}>
       <summary>
@@ -23,6 +27,20 @@ function ToolCall({
         </span>
       </summary>
       <pre className="body">{args}</pre>
+      {hits.length ? (
+        <div className="tool-hits">
+          {hits.map((hit) => (
+            <button
+              key={hit.id}
+              type="button"
+              className="ghost"
+              onClick={() => onPin?.(hit.id)}
+            >
+              {hit.title}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {result ? <pre className="body muted">{result.slice(0, 4000)}</pre> : null}
     </details>
   )
@@ -32,10 +50,14 @@ export function ChatLog({
   items,
   running,
   error,
+  onPin,
+  onPrompt,
 }: {
   items: ChatItem[]
   running: boolean
   error: string | null
+  onPin?: (id: string) => void
+  onPrompt?: (text: string) => void
 }) {
   const turns = groupTurns(items)
   const last = items[items.length - 1]
@@ -49,6 +71,15 @@ export function ChatLog({
       <div className="chat-empty">
         <p className="chat-empty-title">Start a thread</p>
         <p>Ask about a live market, or pick one on the right and hit Ask about this.</p>
+        {onPrompt ? (
+          <div className="starters">
+            {STARTERS.map((s) => (
+              <button key={s.label} type="button" className="ghost" onClick={() => onPrompt(s.text)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     )
   }
@@ -78,6 +109,7 @@ export function ChatLog({
                   args={item.args}
                   result={item.result}
                   ok={item.ok}
+                  onPin={onPin}
                 />
               ) : (
                 <MarkdownBody key={item.id} text={item.text} />

@@ -300,42 +300,28 @@ export function App() {
     }
   }
 
+  async function sendPrompt(text: string) {
+    const next = text.trim()
+    if (!next || running) return
+    setItems((prev) => {
+      const last = prev[prev.length - 1]
+      if (last?.kind === 'user' && last.text === next) return prev
+      return [...prev, { id: crypto.randomUUID(), kind: 'user', text: next }]
+    })
+    await sendText(next)
+  }
+
   async function send() {
     const text = draft.trim()
     if (!text || running) return
     setDraft('')
-    setItems((prev) => {
-      const last = prev[prev.length - 1]
-      if (last?.kind === 'user' && last.text === text) return prev
-      return [...prev, { id: crypto.randomUUID(), kind: 'user', text }]
-    })
-    await sendText(text)
+    await sendPrompt(text)
   }
 
   async function askAboutMarket(market: Market) {
     if (running) return
-    const text = askPrompt(market)
-    setChatError(null)
     if (narrow) setCatalogOpen(false)
-    try {
-      openGen.current += 1
-      toolsRef.current.clear()
-      const created = await rpc<{ sessionId: string }>('session.create', { agentPreset: 'pmex' })
-      setSessionId(created.sessionId)
-      sessionIdRef.current = created.sessionId
-      setItems([{ id: crypto.randomUUID(), kind: 'user', text }])
-      setRunning(true)
-      await rpc('session.prompt', {
-        sessionId: created.sessionId,
-        mode: 'queue',
-        content: [{ type: 'text', text }],
-        clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      })
-      void refreshSessions()
-    } catch (error) {
-      setRunning(false)
-      setChatError(error instanceof Error ? error.message : String(error))
-    }
+    await sendPrompt(askPrompt(market))
   }
 
   async function cancel() {
@@ -474,7 +460,16 @@ export function App() {
 
       <section className="main" aria-label="Research chat">
         <div className="scroll chat-log" ref={logRef}>
-          <ChatLog items={items} running={running} error={chatError} />
+          <ChatLog
+            items={items}
+            running={running}
+            error={chatError}
+            onPin={(id) => {
+              setPinnedId(id)
+              setCatalogOpen(true)
+            }}
+            onPrompt={(text) => void sendPrompt(text)}
+          />
         </div>
         <form
           className="composer"

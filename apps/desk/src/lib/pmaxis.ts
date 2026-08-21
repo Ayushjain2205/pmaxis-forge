@@ -20,17 +20,44 @@ export type Category = {
   name: string
 }
 
-export type FeedKind = 'top' | 'breaking' | 'resolving' | 'trending'
+export type FeedKind = 'top' | 'breaking' | 'resolving' | 'trending' | 'new'
 
 export type CatalogScope =
   | { kind: 'all' }
   | { kind: 'feed'; id: FeedKind }
   | { kind: 'category'; slug: string }
   | { kind: 'search'; q: string }
+  | { kind: 'watching' }
+  | { kind: 'events' }
+  | { kind: 'event'; id: string; name: string }
 
 export type Orderbook = {
   bids?: { price: number; size: number }[]
   asks?: { price: number; size: number }[]
+}
+
+export type MarketEvent = {
+  id: string
+  title: string
+}
+
+export type Print = {
+  price: number
+  size: number
+  side: string
+  at?: number
+}
+
+export type Health = {
+  status: string
+  detail?: string
+}
+
+export type InspectExtras = {
+  health: Health | null
+  related: Market[]
+  path: number[]
+  trades: Print[]
 }
 
 function asList(data: unknown): Market[] {
@@ -96,6 +123,54 @@ export function askPrompt(m: Market): string {
   return `Research market ${id}: "${title}". Pull the live price, orderbook, and liquidity. Is the book real, and what would move this price?`
 }
 
+export const BRIEF_PROMPT =
+  'Morning brief: what moved in the last hour, the top names by volume, and markets resolving this week. For anything you name, check whether the book is real. Ground every price in a tool result.'
+
+export const STARTERS: { label: string; text: string }[] = [
+  { label: 'Morning brief', text: BRIEF_PROMPT },
+  {
+    label: 'Breaking hour',
+    text: 'What broke in the last hour, and is the book real on the names that moved?',
+  },
+  {
+    label: 'Top volume',
+    text: 'Top markets by volume right now. Ground prices in tool results.',
+  },
+  {
+    label: 'Resolving soon',
+    text: 'Markets resolving this week with the most activity. Is the book real?',
+  },
+]
+
+const WATCH_KEY = 'forge:watch'
+
+export function loadWatch(): Market[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(WATCH_KEY) || '[]') as Market[]
+    return Array.isArray(raw) ? raw.filter((m) => marketId(m)) : []
+  } catch {
+    return []
+  }
+}
+
+export function isWatched(id: string): boolean {
+  return loadWatch().some((m) => marketId(m) === id)
+}
+
+export function toggleWatch(market: Market): Market[] {
+  const id = marketId(market)
+  if (!id) return loadWatch()
+  const current = loadWatch()
+  const next = current.some((m) => marketId(m) === id)
+    ? current.filter((m) => marketId(m) !== id)
+    : [{ market_id: id, question: marketTitle(market), price: marketPrice(market) }, ...current].slice(
+        0,
+        24,
+      )
+  localStorage.setItem(WATCH_KEY, JSON.stringify(next))
+  return next
+}
+
 const catalogCache = new Map<string, { at: number; rows: Market[] }>()
 const CATALOG_TTL_MS = 20_000
 
@@ -109,6 +184,17 @@ export function catalogPath(scope: CatalogScope): string {
   if (scope.kind === 'category') {
     return `/v1/markets?limit=40&category=${encodeURIComponent(scope.slug)}&active=true`
   }
+  if (scope.kind === 'watching') {
+    const ids = loadWatch()
+      .map((m) => marketId(m))
+      .filter(Boolean)
+      .slice(0, 10)
+    return ids.length ? `/v1/markets/compare?ids=${ids.join(',')}` : ''
+  }
+  if (scope.kind === 'events') return '/v1/events?limit=40&active=true'
+  if (scope.kind === 'event') {
+    return `/v1/events/${encodeURIComponent(scope.id)}/markets?limit=40&status=ACTIVE`
+  }
   return `/v1/markets/${scope.id}?limit=40`
 }
 
@@ -117,6 +203,18 @@ export function peekCatalog(scope: CatalogScope): Market[] | null {
 }
 
 export async function fetchCatalog(scope: CatalogScope, signal?: AbortSignal): Promise<Market[]> {
+  if (scope.kind === 'events') return []
+  if (scope.kind === 'watching') {
+    const path = catalogPath(scope)
+    if (!path) return loadWatch()
+    try {
+      const rows = asList(await pmaxis(path, signal))
+      return rows.length ? rows : loadWatch()
+    } catch (error) {
+      if (signal?.aborted) throw error
+      return loadWatch()
+    }
+  }
   const path = catalogPath(scope)
   const hit = catalogCache.get(path)
   if (hit && Date.now() - hit.at < CATALOG_TTL_MS) return hit.rows
@@ -189,6 +287,153 @@ export async function fetchStats(
   }
 }
 
+export async function fetchEvents(signal?: AbortSignal): Promise<MarketEvent[]> {
+  try {
+    return asEvents(await pmaxis('/v1/events?limit=40&active=true', signal))
+  } catch (error) {
+    if (signal?.aborted) throw error
+    return []
+  }
+}
+
+export async function fetchCompare(ids: string[], signal?: AbortSignal): Promise<Market[]> {
+  const unique = [...new Set(ids.filter(Boolean))].slice(0, 10)
+  if (unique.length < 2) return []
+  return asList(await pmaxis(`/v1/markets/compare?ids=${unique.join(',')}`, signal))
+}
+
+export async function fetchInspectExtras(
+  id: string,
+  signal?: AbortSignal,
+): Promise<InspectExtras> {
+  const jobs = await Promise.allSettled([
+    pmaxis<unknown>(`/v1/markets/${encodeURIComponent(id)}/health`, signal),
+    pmaxis<unknown>(`/v1/markets/${encodeURIComponent(id)}/related`, signal),
+    fetchPath(id, signal),
+    pmaxis<unknown>(`/v1/markets/${encodeURIComponent(id)}/trades?limit=8`, signal),
+  ])
+  return {
+    health: jobs[0].status === 'fulfilled' ? asHealth(jobs[0].value) : null,
+    related: jobs[1].status === 'fulfilled' ? asList(jobs[1].value) : [],
+    path: jobs[2].status === 'fulfilled' ? jobs[2].value : [],
+    trades: jobs[3].status === 'fulfilled' ? asTrades(jobs[3].value) : [],
+  }
+}
+
+async function fetchPath(id: string, signal?: AbortSignal): Promise<number[]> {
+  const to = Math.floor(Date.now() / 1000)
+  const from = to - 48 * 60 * 60
+  const routes = [
+    `/v1/markets/${encodeURIComponent(id)}/price-history?resolution=1m&limit=48`,
+    `/v1/markets/${encodeURIComponent(id)}/price-history?resolution=1h&limit=48`,
+    `/v1/markets/${encodeURIComponent(id)}/candles?resolution=60&from=${from}&to=${to}`,
+  ]
+  for (const route of routes) {
+    try {
+      const points = asPath(await pmaxis(route, signal))
+      if (points.length >= 2) return points
+    } catch (error) {
+      if (signal?.aborted) throw error
+    }
+  }
+  return []
+}
+
+function asHealth(data: unknown): Health | null {
+  if (!data || typeof data !== 'object') return null
+  const rec = data as Record<string, unknown>
+  const status = String(rec.status ?? rec.freshness ?? rec.state ?? '')
+  if (!status) return null
+  return { status, detail: typeof rec.detail === 'string' ? rec.detail : undefined }
+}
+
+function closeOf(row: unknown): number {
+  if (typeof row === 'number') return row
+  if (typeof row === 'string') return Number(row)
+  if (Array.isArray(row)) return Number(row[4] ?? row[1] ?? row[0])
+  if (row && typeof row === 'object') {
+    const r = row as Record<string, unknown>
+    return Number(
+      r.avg_price ??
+        r.close ??
+        r.c ??
+        r.price ??
+        r.p ??
+        r.mid ??
+        r.mid_price ??
+        r.value ??
+        r.px ??
+        r.last,
+    )
+  }
+  return NaN
+}
+
+function asPath(data: unknown): number[] {
+  if (Array.isArray(data)) {
+    return data.map(closeOf).filter((n) => Number.isFinite(n)).slice(-48)
+  }
+  if (data && typeof data === 'object') {
+    const rec = data as Record<string, unknown>
+    for (const key of ['c', 'close', 'closes', 'prices', 'history', 'data', 'candles', 'items', 'points', 'series', 'bars']) {
+      if (Array.isArray(rec[key])) {
+        const points = asPath(rec[key])
+        if (points.length) return points
+      }
+    }
+  }
+  return []
+}
+
+function asTrades(data: unknown): Print[] {
+  const raw = Array.isArray(data)
+    ? data
+    : data && typeof data === 'object'
+      ? ((data as Record<string, unknown>).trades ??
+        (data as Record<string, unknown>).data ??
+        (data as Record<string, unknown>).items)
+      : []
+  if (!Array.isArray(raw)) return []
+  const out: Print[] = []
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue
+    const r = row as Record<string, unknown>
+    const price = Number(r.price)
+    if (!Number.isFinite(price)) continue
+    const size = Number(r.size ?? r.amount ?? r.quantity)
+    const print: Print = {
+      price,
+      size: Number.isFinite(size) ? size : 0,
+      side: String(r.side ?? ''),
+    }
+    if (typeof r.timestamp === 'number') print.at = r.timestamp
+    out.push(print)
+    if (out.length >= 8) break
+  }
+  return out
+}
+
+function asEvents(data: unknown): MarketEvent[] {
+  const raw = Array.isArray(data)
+    ? data
+    : data && typeof data === 'object'
+      ? ((data as Record<string, unknown>).events ??
+        (data as Record<string, unknown>).data ??
+        (data as Record<string, unknown>).items)
+      : []
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((row) => {
+      if (!row || typeof row !== 'object') return { id: '', title: '' }
+      const rec = row as Record<string, unknown>
+      const id = String(rec.id ?? rec.event_id ?? rec.slug ?? '')
+      const title = String(rec.title ?? rec.name ?? rec.ticker ?? rec.slug ?? id)
+      return { id, title }
+    })
+    .filter((e) => e.id)
+    .slice(0, 40)
+}
+
 function normalizeLevels(raw: unknown): { price: number; size: number }[] {
   if (!Array.isArray(raw)) return []
   return raw
@@ -225,4 +470,17 @@ export function idsFromToolText(text: string): string[] {
   let m: RegExpExecArray | null
   while ((m = re.exec(text))) ids.add(m[1])
   return [...ids]
+}
+
+export function marketsFromToolText(text: string): { id: string; title: string }[] {
+  try {
+    const rows = asList(JSON.parse(text) as unknown)
+    const mapped = rows
+      .map((m) => ({ id: marketId(m), title: marketTitle(m) }))
+      .filter((m) => m.id)
+    if (mapped.length) return mapped.slice(0, 8)
+  } catch {
+    /* not json */
+  }
+  return idsFromToolText(text).map((id) => ({ id, title: id }))
 }
