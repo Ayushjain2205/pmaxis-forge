@@ -142,8 +142,8 @@ Browser
 
 - Sessions: collapsible rail from `session.list`; click a row to hydrate `session.history`.
 - Chat: primary stage — `session.create` / `session.prompt` / mux WebSocket against the same dsh engine.
-- Boards: live top / breaking / resolving tape (always on, no LLM).
-- Inspector: sheet for a pinned market (click a tape chip, or pin from a tool result `market_id`).
+- Markets: right-hand catalog — All, Top/Breaking/Resolving/Trending, then live categories from PMAxis. Search in the rail. Click a row to open the book (inspector drills in).
+- Inspector: sheet inside the catalog for a pinned market (row click, or pin from a tool result `market_id`).
 - Keys dialog: native `<dialog>` for OpenRouter or DeepSeek credential + model picker.
 
 ## 8. Experience bar

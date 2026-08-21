@@ -1,36 +1,21 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { InspectorSheet } from './components/InspectorSheet'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { KeysDialog } from './components/KeysDialog'
 import { MarkdownBody } from './components/MarkdownBody'
+import { MarketsCatalog } from './components/MarketsCatalog'
 import { type ChatItem, eventType, extractText, foldHistory } from './lib/chat'
 import { connectMux } from './lib/mux'
 import {
-  fetchBoard,
   fetchMarket,
   fetchOrderbook,
   fetchStats,
-  formatPx,
-  formatVol,
   idsFromToolText,
-  marketId,
-  marketPrice,
-  marketTitle,
   type Market,
   type Orderbook,
 } from './lib/pmaxis'
 import { respond, rpc } from './lib/rpc'
 import { formatWhen, listSessions, loadHistory, type SessionRow } from './lib/sessions'
 
-type BoardKind = 'top' | 'breaking' | 'resolving'
-
-const BOARD_TABS: BoardKind[] = ['top', 'breaking', 'resolving']
-
 export function App() {
-  const tabBase = useId()
-  const [boardKind, setBoardKind] = useState<BoardKind>('top')
-  const [markets, setMarkets] = useState<Market[]>([])
-  const [boardLoading, setBoardLoading] = useState(true)
-  const [boardError, setBoardError] = useState<string | null>(null)
   const [pinnedId, setPinnedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<Market | null>(null)
   const [book, setBook] = useState<Orderbook>({ bids: [], asks: [] })
@@ -48,6 +33,7 @@ export function App() {
   const [chatError, setChatError] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [sessionsOpen, setSessionsOpen] = useState(true)
+  const [catalogOpen, setCatalogOpen] = useState(true)
   const [narrow, setNarrow] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
   const toolsRef = useRef<Map<string, string>>(new Map())
@@ -65,10 +51,14 @@ export function App() {
     const mq = window.matchMedia('(max-width: 960px)')
     const sync = () => setNarrow(mq.matches)
     sync()
-    if (mq.matches) setSessionsOpen(false)
+    if (mq.matches) {
+      setSessionsOpen(false)
+      setCatalogOpen(false)
+    }
     const onChange = (e: MediaQueryListEvent) => {
       setNarrow(e.matches)
       setSessionsOpen(!e.matches)
+      setCatalogOpen(!e.matches)
     }
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
@@ -78,26 +68,6 @@ export function App() {
     const t = window.setInterval(() => void refreshSessions(), 15_000)
     return () => window.clearInterval(t)
   }, [refreshSessions])
-
-  const loadBoard = useCallback(async (kind: BoardKind) => {
-    try {
-      setBoardError(null)
-      const rows = await fetchBoard(kind)
-      setMarkets(rows)
-    } catch (error) {
-      setBoardError(error instanceof Error ? error.message : String(error))
-      setMarkets([])
-    } finally {
-      setBoardLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    setBoardLoading(true)
-    void loadBoard(boardKind)
-    const t = window.setInterval(() => void loadBoard(boardKind), 15_000)
-    return () => window.clearInterval(t)
-  }, [boardKind, loadBoard])
 
   useEffect(() => {
     if (!pinnedId) {
@@ -222,6 +192,7 @@ export function App() {
         const ok = !data.error && !/unknown tool|isError/i.test(text)
         for (const id of idsFromToolText(text)) {
           setPinnedId((current) => current ?? id)
+          setCatalogOpen(true)
         }
         setItems((prev) =>
           prev.map((item) =>
@@ -272,11 +243,15 @@ export function App() {
         setPinnedId(null)
         return
       }
+      if (catalogOpen && narrow) {
+        setCatalogOpen(false)
+        return
+      }
       if (sessionsOpen && narrow) setSessionsOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pinnedId, sessionsOpen, narrow, settingsOpen])
+  }, [pinnedId, catalogOpen, sessionsOpen, narrow, settingsOpen])
 
   async function send() {
     const text = draft.trim()
@@ -326,28 +301,14 @@ export function App() {
     }
   }
 
-  function onBoardTabKey(e: React.KeyboardEvent, current: BoardKind) {
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'Home' && e.key !== 'End')
-      return
-    e.preventDefault()
-    let next = current
-    const i = BOARD_TABS.indexOf(current)
-    if (e.key === 'ArrowRight') next = BOARD_TABS[(i + 1) % BOARD_TABS.length]
-    if (e.key === 'ArrowLeft') next = BOARD_TABS[(i - 1 + BOARD_TABS.length) % BOARD_TABS.length]
-    if (e.key === 'Home') next = BOARD_TABS[0]
-    if (e.key === 'End') next = BOARD_TABS[BOARD_TABS.length - 1]
-    setBoardKind(next)
-    document.getElementById(`${tabBase}-${next}`)?.focus()
-  }
-
   const visibleSessions = sessions.filter((s) => !s.blank || s.sessionId === sessionId)
-  const showScrim = narrow && (sessionsOpen || Boolean(pinnedId))
+  const showScrim = narrow && (sessionsOpen || catalogOpen)
   const liveLabel = running ? 'Agent is running' : chatError ? chatError : 'Agent idle'
 
   const deskClass = [
     'desk',
     sessionsOpen ? 'sessions-open' : '',
-    pinnedId ? 'inspect-open' : '',
+    catalogOpen ? 'catalog-open' : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -388,6 +349,15 @@ export function App() {
           <button
             type="button"
             className="ghost"
+            aria-expanded={catalogOpen}
+            aria-controls="markets-catalog"
+            onClick={() => setCatalogOpen((v) => !v)}
+          >
+            Markets
+          </button>
+          <button
+            type="button"
+            className="ghost"
             aria-expanded={settingsOpen}
             aria-controls="keys-dialog"
             onClick={() => setSettingsOpen(true)}
@@ -397,69 +367,13 @@ export function App() {
         </div>
       </header>
 
-      <section className="tape" aria-label="Live boards">
-        <div className="tape-head">
-          <div className="tabs" role="tablist" aria-label="Board">
-            {BOARD_TABS.map((kind) => (
-              <button
-                key={kind}
-                id={`${tabBase}-${kind}`}
-                type="button"
-                role="tab"
-                aria-selected={boardKind === kind}
-                aria-controls={`${tabBase}-panel`}
-                tabIndex={boardKind === kind ? 0 : -1}
-                onClick={() => setBoardKind(kind)}
-                onKeyDown={(e) => onBoardTabKey(e, kind)}
-              >
-                {kind[0].toUpperCase() + kind.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div
-          className="tape-track"
-          id={`${tabBase}-panel`}
-          role="tabpanel"
-          aria-labelledby={`${tabBase}-${boardKind}`}
-        >
-          {boardError ? (
-            <p className="empty err" role="alert">
-              Boards failed to load. Check the host is up, then retry by switching tabs.
-            </p>
-          ) : null}
-          {!boardError && boardLoading && markets.length === 0 ? (
-            <p className="empty">Loading live books…</p>
-          ) : null}
-          {!boardError && !boardLoading && markets.length === 0 ? (
-            <p className="empty">No markets on this board.</p>
-          ) : null}
-          {markets.map((m) => {
-            const id = marketId(m)
-            return (
-              <button
-                key={id || marketTitle(m)}
-                type="button"
-                className="chip"
-                aria-current={pinnedId === id || undefined}
-                onClick={() => setPinnedId(id)}
-              >
-                <span className="q">{marketTitle(m)}</span>
-                <span className="px">{formatPx(marketPrice(m))}</span>
-                <span className="vol">{formatVol(m.volume_24h ?? m.volume)}</span>
-              </button>
-            )
-          })}
-        </div>
-      </section>
-
       {showScrim ? (
         <button
           type="button"
           className="scrim"
           aria-label="Close panel"
           onClick={() => {
-            if (pinnedId) setPinnedId(null)
+            if (catalogOpen) setCatalogOpen(false)
             else setSessionsOpen(false)
           }}
         />
@@ -498,8 +412,8 @@ export function App() {
         <div className="scroll chat-log" ref={logRef}>
           {items.length === 0 ? (
             <p className="empty">
-              Ask about a live market, or pick a name from the tape above. Tool calls stay visible
-              in the thread.
+              Ask about a live market, or open Markets to browse by category. Tool calls stay
+              visible in the thread.
             </p>
           ) : null}
           {items.map((item) =>
@@ -558,16 +472,20 @@ export function App() {
         </form>
       </section>
 
-      {pinnedId ? (
-        <InspectorSheet
+      <aside className="catalog" id="markets-catalog" aria-label="Market catalog">
+        <MarketsCatalog
           pinnedId={pinnedId}
           detail={detail}
           book={book}
           stats={stats}
-          error={inspectError}
-          onClose={() => setPinnedId(null)}
+          inspectError={inspectError}
+          onPin={(id) => {
+            setPinnedId(id)
+            setCatalogOpen(true)
+          }}
+          onCloseInspect={() => setPinnedId(null)}
         />
-      ) : null}
+      </aside>
 
       {settingsOpen ? (
         <KeysDialog

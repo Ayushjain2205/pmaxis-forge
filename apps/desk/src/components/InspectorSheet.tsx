@@ -25,11 +25,11 @@ export function InspectorSheet({
   const px = detail ? marketPrice(detail) : undefined
 
   return (
-    <aside className="inspect" aria-label="Market inspector">
+    <div className="inspect-pane">
       <div className="col-head">
         <h2>{title}</h2>
         <button type="button" className="ghost" onClick={onClose}>
-          Close book
+          Back to markets
         </button>
       </div>
       <div className="scroll pad">
@@ -81,6 +81,6 @@ export function InspectorSheet({
           </div>
         </div>
       </div>
-    </aside>
+    </div>
   )
 }

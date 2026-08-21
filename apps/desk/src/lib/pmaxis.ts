@@ -12,7 +12,21 @@ export type Market = {
   status?: string
   slug?: string
   liquidity?: number
+  category?: string
 }
+
+export type Category = {
+  slug: string
+  name: string
+}
+
+export type FeedKind = 'top' | 'breaking' | 'resolving' | 'trending'
+
+export type CatalogScope =
+  | { kind: 'all' }
+  | { kind: 'feed'; id: FeedKind }
+  | { kind: 'category'; slug: string }
+  | { kind: 'search'; q: string }
 
 export type Orderbook = {
   bids?: { price: number; size: number }[]
@@ -52,14 +66,44 @@ export async function pmaxis<T>(path: string): Promise<T> {
   return (await res.json()) as T
 }
 
-export async function fetchBoard(kind: 'top' | 'breaking' | 'resolving'): Promise<Market[]> {
-  const path =
-    kind === 'top'
-      ? '/v1/markets/top?limit=20'
-      : kind === 'breaking'
-        ? '/v1/markets/breaking?limit=20'
-        : '/v1/markets/resolving?limit=20'
-  return asList(await pmaxis(path))
+export async function fetchCategories(): Promise<Category[]> {
+  return asCategories(await pmaxis('/v1/categories'))
+}
+
+export async function fetchCatalog(scope: CatalogScope): Promise<Market[]> {
+  if (scope.kind === 'search') {
+    return asList(await pmaxis(`/v1/markets/search?q=${encodeURIComponent(scope.q)}&limit=40`))
+  }
+  if (scope.kind === 'all') {
+    return asList(await pmaxis('/v1/markets?limit=40&active=true'))
+  }
+  if (scope.kind === 'category') {
+    return asList(
+      await pmaxis(`/v1/categories/${encodeURIComponent(scope.slug)}/markets?limit=40`),
+    )
+  }
+  return asList(await pmaxis(`/v1/markets/${scope.id}?limit=40`))
+}
+
+function asCategories(data: unknown): Category[] {
+  const raw = Array.isArray(data)
+    ? data
+    : data && typeof data === 'object'
+      ? ((data as Record<string, unknown>).categories ??
+        (data as Record<string, unknown>).items ??
+        (data as Record<string, unknown>).data)
+      : []
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((row) => {
+      if (typeof row === 'string') return { slug: row, name: row }
+      if (!row || typeof row !== 'object') return { slug: '', name: '' }
+      const rec = row as Record<string, unknown>
+      const slug = String(rec.slug ?? rec.id ?? rec.name ?? '')
+      const name = String(rec.name ?? rec.title ?? rec.label ?? slug)
+      return { slug, name }
+    })
+    .filter((c) => c.slug)
 }
 
 export async function fetchMarket(id: string): Promise<Market> {

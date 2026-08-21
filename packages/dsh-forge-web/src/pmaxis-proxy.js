@@ -3,16 +3,21 @@
 const PREFIX = '/forge/pmaxis'
 
 const EXACT = new Set([
+  '/v1/markets',
   '/v1/markets/top',
   '/v1/markets/breaking',
   '/v1/markets/resolving',
   '/v1/markets/trending',
+  '/v1/markets/new',
+  '/v1/markets/search',
+  '/v1/categories',
 ])
 
 const DETAIL = /^\/v1\/markets\/[A-Za-z0-9_-]+(?:\/(?:orderbook|liquidity|stats|summary))?$/
+const CATEGORY_MARKETS = /^\/v1\/categories\/[A-Za-z0-9_-]+\/markets$/
 
 export function isAllowedPath(pathname) {
-  return EXACT.has(pathname) || DETAIL.test(pathname)
+  return EXACT.has(pathname) || DETAIL.test(pathname) || CATEGORY_MARKETS.test(pathname)
 }
 
 export function mountPmaxisProxy(ctx) {
