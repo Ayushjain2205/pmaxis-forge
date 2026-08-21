@@ -140,10 +140,11 @@ Browser
 
 ### F6 — Desk surfaces
 
-- Boards: live top / breaking / resolving lists without going through the model.
-- Inspector: book + stats for a pinned market (click a board row, or pin from a tool result `market_id`).
-- Chat: `session.create` / `session.prompt` / mux WebSocket against the same dsh engine.
-- Keys sheet: OpenRouter or DeepSeek credential + model picker (replaces DeepSeek Settings UI).
+- Sessions: collapsible rail from `session.list`; click a row to hydrate `session.history`.
+- Chat: primary stage — `session.create` / `session.prompt` / mux WebSocket against the same dsh engine.
+- Boards: live top / breaking / resolving tape (always on, no LLM).
+- Inspector: sheet for a pinned market (click a tape chip, or pin from a tool result `market_id`).
+- Keys dialog: native `<dialog>` for OpenRouter or DeepSeek credential + model picker.
 
 ## 8. Experience bar
 
