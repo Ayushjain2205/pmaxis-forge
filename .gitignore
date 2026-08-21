@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# DeepSeek Harness local state (never commit)
+.dsh/
+**/.dsh/
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Build
+dist/
+lib/
+*.tsbuildinfo
