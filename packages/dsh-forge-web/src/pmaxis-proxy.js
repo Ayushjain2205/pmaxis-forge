@@ -65,25 +65,36 @@ async function handle(req, res, base, key) {
   }
 
   try {
-    const upstream = await fetch(`${base}${rest}${url.search}`, {
-      method: 'GET',
-      headers: {
-        'X-API-Key': key,
-        accept: 'application/json',
-      },
-    })
-    const body = Buffer.from(await upstream.arrayBuffer())
-    const type = upstream.headers.get('content-type') || 'application/json'
-    res.writeHead(upstream.status, {
-      'content-type': type,
-      'cache-control': 'no-store',
-    })
-    if (req.method === 'HEAD') {
-      res.end()
-      return
+    const ac = new AbortController()
+    const abort = () => ac.abort()
+    req.once('close', abort)
+    try {
+      const upstream = await fetch(`${base}${rest}${url.search}`, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': key,
+          accept: 'application/json',
+        },
+        signal: ac.signal,
+      })
+      const body = Buffer.from(await upstream.arrayBuffer())
+      const type = upstream.headers.get('content-type') || 'application/json'
+      if (res.writableEnded) return
+      res.writeHead(upstream.status, {
+        'content-type': type,
+        'cache-control': 'no-store',
+      })
+      if (req.method === 'HEAD') {
+        res.end()
+        return
+      }
+      res.end(body)
+    } finally {
+      req.off('close', abort)
     }
-    res.end(body)
   } catch (error) {
+    if (res.writableEnded) return
+    if (error instanceof Error && error.name === 'AbortError') return
     res.writeHead(502, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
   }

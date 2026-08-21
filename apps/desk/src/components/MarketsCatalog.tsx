@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { InspectorSheet } from './InspectorSheet'
 import {
+  CORE_CATEGORIES,
   fetchCatalog,
   fetchCategories,
+  peekCatalog,
   formatPx,
   formatVol,
   marketId,
@@ -28,22 +30,27 @@ export function MarketsCatalog({
   book,
   stats,
   inspectError,
+  asking,
   onPin,
-  onCloseInspect,
+  onAsk,
 }: {
   pinnedId: string | null
   detail: Market | null
   book: Orderbook
   stats: Record<string, unknown>
   inspectError: string | null
-  onPin: (id: string) => void
-  onCloseInspect: () => void
+  asking: boolean
+  onPin: (id: string | null) => void
+  onAsk: (market: Market) => void
 }) {
   const searchId = useId()
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
-  const [scope, setScope] = useState<Exclude<CatalogScope, { kind: 'search' }>>({ kind: 'all' })
-  const [categories, setCategories] = useState<Category[]>([])
+  const [scope, setScope] = useState<Exclude<CatalogScope, { kind: 'search' }>>({
+    kind: 'feed',
+    id: 'top',
+  })
+  const [categories, setCategories] = useState<Category[]>(CORE_CATEGORIES)
   const [markets, setMarkets] = useState<Market[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -54,18 +61,16 @@ export function MarketsCatalog({
   }, [query])
 
   useEffect(() => {
-    let cancelled = false
+    const ac = new AbortController()
     void (async () => {
       try {
-        const rows = await fetchCategories()
-        if (!cancelled) setCategories(rows)
+        const rows = await fetchCategories(ac.signal)
+        if (!ac.signal.aborted) setCategories(rows)
       } catch {
-        if (!cancelled) setCategories([])
+        /* aborted or offline — keep CORE_CATEGORIES */
       }
     })()
-    return () => {
-      cancelled = true
-    }
+    return () => ac.abort()
   }, [])
 
   const searching = debounced.length >= 2
@@ -77,55 +82,65 @@ export function MarketsCatalog({
         ? `feed:${scope.id}`
         : `category:${scope.slug}`
 
-  const load = useCallback(async (next: CatalogScope) => {
+  const load = useCallback(async (next: CatalogScope, signal: AbortSignal, quiet = false) => {
     try {
+      if (!quiet) {
+        setError(null)
+        setLoading(true)
+      }
+      const rows = await fetchCatalog(next, signal)
+      if (signal.aborted) return
+      setMarkets(rows)
       setError(null)
-      setMarkets(await fetchCatalog(next))
     } catch (e) {
+      if (signal.aborted) return
       setError(e instanceof Error ? e.message : String(e))
       setMarkets([])
     } finally {
-      setLoading(false)
+      if (!signal.aborted && !quiet) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    const next: CatalogScope = searching
-      ? { kind: 'search', q: debounced }
-      : scope
-    setLoading(true)
-    void load(next)
-    const t = window.setInterval(() => void load(next), 15_000)
-    return () => window.clearInterval(t)
+    const ac = new AbortController()
+    const next: CatalogScope = searching ? { kind: 'search', q: debounced } : scope
+    const cached = peekCatalog(next)
+    if (cached) {
+      setMarkets(cached)
+      setLoading(false)
+      setError(null)
+    } else {
+      setLoading(true)
+    }
+    void load(next, ac.signal, Boolean(cached))
+    const t = window.setInterval(() => void load(next, ac.signal, true), 20_000)
+    return () => {
+      ac.abort()
+      window.clearInterval(t)
+    }
   }, [catalogKey, searching, debounced, scope, load])
 
-  if (pinnedId) {
-    return (
-      <InspectorSheet
-        pinnedId={pinnedId}
-        detail={detail}
-        book={book}
-        stats={stats}
-        error={inspectError}
-        onClose={onCloseInspect}
-      />
-    )
-  }
+  const selected = useMemo(() => {
+    if (!pinnedId) return null
+    return markets.find((m) => marketId(m) === pinnedId) ?? detail
+  }, [pinnedId, markets, detail])
 
   const selectedLabel = searching
     ? `Search “${debounced}”`
     : scope.kind === 'all'
-      ? 'All markets'
+      ? 'All'
       : scope.kind === 'feed'
         ? FEEDS.find((f) => f.id === scope.id)?.label ?? scope.id
         : categories.find((c) => c.slug === scope.slug)?.name ?? scope.slug
 
   return (
     <>
-      <div className="col-head">
-        <h2>Markets</h2>
-        <span className="muted">{selectedLabel}</span>
-      </div>
+      {pinnedId ? null : (
+        <div className="col-head">
+          <h2>Markets</h2>
+          <span className="muted">{selectedLabel}</span>
+        </div>
+      )}
       <div className="filters">
         <label>
           <span className="vh">Search markets</span>
@@ -137,13 +152,14 @@ export function MarketsCatalog({
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
-        <div className="pills" role="group" aria-label="Market filters">
+        <div className="pills" role="group" aria-label="Boards">
           <button
             type="button"
             aria-pressed={!searching && scope.kind === 'all'}
             onClick={() => {
               setQuery('')
               setScope({ kind: 'all' })
+              onPin(null)
             }}
           >
             All
@@ -156,58 +172,92 @@ export function MarketsCatalog({
               onClick={() => {
                 setQuery('')
                 setScope({ kind: 'feed', id: feed.id })
+                onPin(null)
               }}
             >
               {feed.label}
             </button>
           ))}
         </div>
-        {categories.length > 0 ? (
-          <div className="pills" role="group" aria-label="Categories">
-            {categories.map((cat) => (
-              <button
-                key={cat.slug}
-                type="button"
-                aria-pressed={!searching && scope.kind === 'category' && scope.slug === cat.slug}
-                onClick={() => {
-                  setQuery('')
-                  setScope({ kind: 'category', slug: cat.slug })
-                }}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
-      <div className="scroll">
-        {error ? (
-          <p className="empty err" role="alert">
-            Markets failed to load. Try another filter, or check the host is up.
-          </p>
-        ) : null}
-        {loading && markets.length === 0 && !error ? <p className="empty">Loading markets…</p> : null}
-        {!loading && !error && markets.length === 0 ? (
-          <p className="empty">No markets in this view.</p>
-        ) : null}
-        {markets.map((m) => {
-          const id = marketId(m)
-          return (
+        <div className="pills" role="group" aria-label="Categories">
+          {categories.map((cat) => (
             <button
-              key={id || marketTitle(m)}
+              key={cat.slug}
               type="button"
-              className="row"
-              onClick={() => id && onPin(id)}
+              aria-pressed={!searching && scope.kind === 'category' && scope.slug === cat.slug}
+              onClick={() => {
+                setQuery('')
+                setScope({ kind: 'category', slug: cat.slug })
+                onPin(null)
+              }}
             >
-              <span className="q">{marketTitle(m)}</span>
-              <span className="row-meta">
-                {m.category ? <span className="muted">{m.category}</span> : null}
-                <span className="px">{formatPx(marketPrice(m))}</span>
-                <span className="vol">{formatVol(m.volume_24h ?? m.volume)}</span>
-              </span>
+              {cat.name}
             </button>
-          )
-        })}
+          ))}
+        </div>
+      </div>
+      {pinnedId ? (
+        <InspectorSheet
+          pinnedId={pinnedId}
+          detail={detail ?? selected}
+          book={book}
+          stats={stats}
+          error={inspectError}
+          onClose={() => onPin(null)}
+        />
+      ) : (
+        <div className="scroll">
+          {loading ? <p className="empty">Loading {selectedLabel.toLowerCase()}…</p> : null}
+          {!loading && error ? (
+            <p className="empty err" role="alert">
+              Markets failed to load. Try another filter, or check the host is up.
+            </p>
+          ) : null}
+          {!loading && !error && markets.length === 0 ? (
+            <p className="empty">No markets in {selectedLabel.toLowerCase()}.</p>
+          ) : null}
+          {markets.map((m) => {
+            const id = marketId(m)
+            return (
+              <button
+                key={id || marketTitle(m)}
+                type="button"
+                className="row"
+                onClick={() => id && onPin(id)}
+              >
+                <span className="q">{marketTitle(m)}</span>
+                <span className="row-meta">
+                  {m.category ? <span className="muted">{m.category}</span> : null}
+                  <span className="px">{formatPx(marketPrice(m))}</span>
+                  <span className="vol">{formatVol(m.volume_24h ?? m.volume)}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+      <div className="ask-bar">
+        <div className="ask-copy">
+          {selected ? (
+            <>
+              <span className="q">{marketTitle(selected)}</span>
+              <span className="row-meta">
+                <span className="px">{formatPx(marketPrice(selected))}</span>
+                {selected.category ? <span className="muted">{selected.category}</span> : null}
+              </span>
+            </>
+          ) : (
+            <span className="muted">Select a market, then ask.</span>
+          )}
+        </div>
+        <button
+          type="button"
+          className="send"
+          disabled={!selected || asking}
+          onClick={() => selected && onAsk(selected)}
+        >
+          Ask about this
+        </button>
       </div>
     </>
   )

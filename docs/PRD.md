@@ -142,8 +142,7 @@ Browser
 
 - Sessions: collapsible rail from `session.list`; click a row to hydrate `session.history`.
 - Chat: primary stage — `session.create` / `session.prompt` / mux WebSocket against the same dsh engine.
-- Markets: right-hand catalog — All, Top/Breaking/Resolving/Trending, then live categories from PMAxis. Search in the rail. Click a row to open the book (inspector drills in).
-- Inspector: sheet inside the catalog for a pinned market (row click, or pin from a tool result `market_id`).
+- Markets: right-hand catalog with All / live boards plus category filters (Sports, Weather, Politics, Crypto, …). Search in the rail. Select a row, then **Ask about this** to open a new session on that market.
 - Keys dialog: native `<dialog>` for OpenRouter or DeepSeek credential + model picker.
 
 ## 8. Experience bar

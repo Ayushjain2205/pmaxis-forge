@@ -3,6 +3,28 @@ export type ChatItem =
   | { id: string; kind: 'assistant'; text: string }
   | { id: string; kind: 'tool'; name: string; args: string; result?: string; ok?: boolean }
 
+export type ChatTurn =
+  | { id: string; kind: 'user'; item: Extract<ChatItem, { kind: 'user' }> }
+  | { id: string; kind: 'forge'; items: Exclude<ChatItem, { kind: 'user' }>[] }
+
+export function groupTurns(items: ChatItem[]): ChatTurn[] {
+  const turns: ChatTurn[] = []
+  for (const item of items) {
+    if (item.kind === 'user') {
+      turns.push({ id: item.id, kind: 'user', item })
+      continue
+    }
+    const last = turns[turns.length - 1]
+    if (last?.kind === 'forge') last.items.push(item)
+    else turns.push({ id: item.id, kind: 'forge', items: [item] })
+  }
+  return turns
+}
+
+export function toolLabel(name: string): string {
+  return name.replace(/^mcp__.+?__/, '')
+}
+
 export function extractText(value: unknown): string {
   if (typeof value === 'string') return value
   if (Array.isArray(value)) return value.map(extractText).filter(Boolean).join('\n')

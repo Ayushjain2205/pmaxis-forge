@@ -57,8 +57,10 @@ export function marketPrice(m: Market): number | undefined {
   return typeof n === 'number' ? n : undefined
 }
 
-export async function pmaxis<T>(path: string): Promise<T> {
-  const res = await fetch(`/forge/pmaxis${path}`)
+export async function pmaxis<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const signals = [AbortSignal.timeout(8_000)]
+  if (signal) signals.push(signal)
+  const res = await fetch(`/forge/pmaxis${path}`, { signal: AbortSignal.any(signals) })
   if (!res.ok) {
     const text = await res.text()
     throw new Error(text || `pmaxis ${res.status}`)
@@ -66,23 +68,76 @@ export async function pmaxis<T>(path: string): Promise<T> {
   return (await res.json()) as T
 }
 
-export async function fetchCategories(): Promise<Category[]> {
-  return asCategories(await pmaxis('/v1/categories'))
+export const CORE_CATEGORIES: Category[] = [
+  { slug: 'sports', name: 'Sports' },
+  { slug: 'weather', name: 'Weather' },
+  { slug: 'politics', name: 'Politics' },
+  { slug: 'crypto', name: 'Crypto' },
+  { slug: 'economics', name: 'Economics' },
+  { slug: 'science', name: 'Science' },
+  { slug: 'pop-culture', name: 'Culture' },
+  { slug: 'tech', name: 'Tech' },
+]
+
+export function mergeCategories(api: Category[]): Category[] {
+  const bySlug = new Map<string, Category>()
+  for (const row of CORE_CATEGORIES) bySlug.set(row.slug, row)
+  for (const row of api) {
+    const slug = row.slug.trim().toLowerCase()
+    if (!slug) continue
+    if (!bySlug.has(slug)) bySlug.set(slug, { slug, name: row.name || slug })
+  }
+  return [...bySlug.values()]
 }
 
-export async function fetchCatalog(scope: CatalogScope): Promise<Market[]> {
+export function askPrompt(m: Market): string {
+  const id = marketId(m)
+  const title = marketTitle(m)
+  return `Research market ${id}: "${title}". Pull the live price, orderbook, and liquidity. Is the book real, and what would move this price?`
+}
+
+const catalogCache = new Map<string, { at: number; rows: Market[] }>()
+const CATALOG_TTL_MS = 20_000
+
+export function catalogPath(scope: CatalogScope): string {
   if (scope.kind === 'search') {
-    return asList(await pmaxis(`/v1/markets/search?q=${encodeURIComponent(scope.q)}&limit=40`))
+    return `/v1/markets/search?q=${encodeURIComponent(scope.q)}&limit=40`
   }
   if (scope.kind === 'all') {
-    return asList(await pmaxis('/v1/markets?limit=40&active=true'))
+    return `/v1/markets?limit=40&active=true`
   }
   if (scope.kind === 'category') {
-    return asList(
-      await pmaxis(`/v1/categories/${encodeURIComponent(scope.slug)}/markets?limit=40`),
-    )
+    return `/v1/markets?limit=40&category=${encodeURIComponent(scope.slug)}&active=true`
   }
-  return asList(await pmaxis(`/v1/markets/${scope.id}?limit=40`))
+  return `/v1/markets/${scope.id}?limit=40`
+}
+
+export function peekCatalog(scope: CatalogScope): Market[] | null {
+  return catalogCache.get(catalogPath(scope))?.rows ?? null
+}
+
+export async function fetchCatalog(scope: CatalogScope, signal?: AbortSignal): Promise<Market[]> {
+  const path = catalogPath(scope)
+  const hit = catalogCache.get(path)
+  if (hit && Date.now() - hit.at < CATALOG_TTL_MS) return hit.rows
+  try {
+    const rows = asList(await pmaxis(path, signal))
+    catalogCache.set(path, { at: Date.now(), rows })
+    return rows
+  } catch (error) {
+    if (signal?.aborted) throw error
+    if (hit) return hit.rows
+    throw error
+  }
+}
+
+export async function fetchCategories(signal?: AbortSignal): Promise<Category[]> {
+  try {
+    return mergeCategories(asCategories(await pmaxis('/v1/categories', signal)))
+  } catch (error) {
+    if (signal?.aborted) throw error
+    return CORE_CATEGORIES
+  }
 }
 
 function asCategories(data: unknown): Category[] {
@@ -106,12 +161,12 @@ function asCategories(data: unknown): Category[] {
     .filter((c) => c.slug)
 }
 
-export async function fetchMarket(id: string): Promise<Market> {
-  return pmaxis(`/v1/markets/${encodeURIComponent(id)}`)
+export async function fetchMarket(id: string, signal?: AbortSignal): Promise<Market> {
+  return pmaxis(`/v1/markets/${encodeURIComponent(id)}`, signal)
 }
 
-export async function fetchOrderbook(id: string): Promise<Orderbook> {
-  const data = await pmaxis<unknown>(`/v1/markets/${encodeURIComponent(id)}/orderbook`)
+export async function fetchOrderbook(id: string, signal?: AbortSignal): Promise<Orderbook> {
+  const data = await pmaxis<unknown>(`/v1/markets/${encodeURIComponent(id)}/orderbook`, signal)
   if (data && typeof data === 'object') {
     const rec = data as Record<string, unknown>
     const book = (rec.orderbook ?? rec) as Orderbook
@@ -123,9 +178,12 @@ export async function fetchOrderbook(id: string): Promise<Orderbook> {
   return { bids: [], asks: [] }
 }
 
-export async function fetchStats(id: string): Promise<Record<string, unknown>> {
+export async function fetchStats(
+  id: string,
+  signal?: AbortSignal,
+): Promise<Record<string, unknown>> {
   try {
-    return await pmaxis(`/v1/markets/${encodeURIComponent(id)}/stats`)
+    return await pmaxis(`/v1/markets/${encodeURIComponent(id)}/stats`, signal)
   } catch {
     return {}
   }

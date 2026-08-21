@@ -19,19 +19,21 @@ export function InspectorSheet({
   book: Orderbook
   stats: Record<string, unknown>
   error: string | null
-  onClose: () => void
+  onClose?: () => void
 }) {
   const title = detail ? marketTitle(detail) : pinnedId
   const px = detail ? marketPrice(detail) : undefined
 
   return (
     <div className="inspect-pane">
-      <div className="col-head">
-        <h2>{title}</h2>
-        <button type="button" className="ghost" onClick={onClose}>
-          Back to markets
-        </button>
-      </div>
+      {onClose ? (
+        <div className="col-head">
+          <h2>{title}</h2>
+          <button type="button" className="ghost" onClick={onClose}>
+            Back
+          </button>
+        </div>
+      ) : null}
       <div className="scroll pad">
         {error ? (
           <p className="err" role="alert">

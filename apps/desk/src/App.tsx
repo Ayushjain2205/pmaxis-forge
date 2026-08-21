@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChatLog } from './components/ChatLog'
 import { KeysDialog } from './components/KeysDialog'
-import { MarkdownBody } from './components/MarkdownBody'
 import { MarketsCatalog } from './components/MarketsCatalog'
 import { type ChatItem, eventType, extractText, foldHistory } from './lib/chat'
 import { connectMux } from './lib/mux'
 import {
+  askPrompt,
   fetchMarket,
   fetchOrderbook,
   fetchStats,
@@ -36,6 +37,7 @@ export function App() {
   const [catalogOpen, setCatalogOpen] = useState(true)
   const [narrow, setNarrow] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
+  const promptRef = useRef<HTMLTextAreaElement>(null)
   const toolsRef = useRef<Map<string, string>>(new Map())
   const openGen = useRef(0)
 
@@ -73,28 +75,28 @@ export function App() {
     if (!pinnedId) {
       setDetail(null)
       setBook({ bids: [], asks: [] })
+      setInspectError(null)
       return
     }
-    let cancelled = false
+    const ac = new AbortController()
     void (async () => {
       try {
         setInspectError(null)
         const [m, b, s] = await Promise.all([
-          fetchMarket(pinnedId),
-          fetchOrderbook(pinnedId),
-          fetchStats(pinnedId),
+          fetchMarket(pinnedId, ac.signal),
+          fetchOrderbook(pinnedId, ac.signal),
+          fetchStats(pinnedId, ac.signal),
         ])
-        if (cancelled) return
+        if (ac.signal.aborted) return
         setDetail(m)
         setBook(b)
         setStats(s)
       } catch (error) {
-        if (!cancelled) setInspectError(error instanceof Error ? error.message : String(error))
+        if (ac.signal.aborted) return
+        setInspectError(error instanceof Error ? error.message : String(error))
       }
     })()
-    return () => {
-      cancelled = true
-    }
+    return () => ac.abort()
   }, [pinnedId])
 
   const openSession = useCallback(async (id: string) => {
@@ -152,7 +154,12 @@ export function App() {
       const data = (event.data as Record<string, unknown> | undefined) ?? {}
       if (type === 'user/message') {
         const text = extractText(data.message ?? data)
-        if (text) setItems((prev) => [...prev, { id: crypto.randomUUID(), kind: 'user', text }])
+        if (!text) return
+        setItems((prev) => {
+          const last = prev[prev.length - 1]
+          if (last?.kind === 'user' && last.text === text) return prev
+          return [...prev, { id: crypto.randomUUID(), kind: 'user', text }]
+        })
       } else if (type === 'assistant/message') {
         const text = extractText(data.message ?? data)
         if (!text) return
@@ -237,6 +244,15 @@ export function App() {
   }, [items, running])
 
   useEffect(() => {
+    const el = promptRef.current
+    if (!el) return
+    el.style.height = '0px'
+    const raw = el.scrollHeight
+    el.style.height = `${Math.min(Math.max(raw, 72), 168)}px`
+    el.style.overflowY = raw > 168 ? 'auto' : 'hidden'
+  }, [draft])
+
+  useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape' || settingsOpen) return
       if (pinnedId) {
@@ -253,16 +269,52 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [pinnedId, catalogOpen, sessionsOpen, narrow, settingsOpen])
 
-  async function send() {
-    const text = draft.trim()
+  async function sendText(text: string) {
     if (!text || running) return
     setChatError(null)
-    setDraft('')
     try {
       const id = await ensureSession()
       setRunning(true)
       await rpc('session.prompt', {
         sessionId: id,
+        mode: 'queue',
+        content: [{ type: 'text', text }],
+        clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      })
+      void refreshSessions()
+    } catch (error) {
+      setRunning(false)
+      setChatError(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  async function send() {
+    const text = draft.trim()
+    if (!text || running) return
+    setDraft('')
+    setItems((prev) => {
+      const last = prev[prev.length - 1]
+      if (last?.kind === 'user' && last.text === text) return prev
+      return [...prev, { id: crypto.randomUUID(), kind: 'user', text }]
+    })
+    await sendText(text)
+  }
+
+  async function askAboutMarket(market: Market) {
+    if (running) return
+    const text = askPrompt(market)
+    setChatError(null)
+    if (narrow) setCatalogOpen(false)
+    try {
+      openGen.current += 1
+      toolsRef.current.clear()
+      const created = await rpc<{ sessionId: string }>('session.create', { agentPreset: 'pmex' })
+      setSessionId(created.sessionId)
+      sessionIdRef.current = created.sessionId
+      setItems([{ id: crypto.randomUUID(), kind: 'user', text }])
+      setRunning(true)
+      await rpc('session.prompt', {
+        sessionId: created.sessionId,
         mode: 'queue',
         content: [{ type: 'text', text }],
         clientTimeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -410,38 +462,7 @@ export function App() {
 
       <section className="main" aria-label="Research chat">
         <div className="scroll chat-log" ref={logRef}>
-          {items.length === 0 ? (
-            <p className="empty">
-              Ask about a live market, or open Markets to browse by category. Tool calls stay
-              visible in the thread.
-            </p>
-          ) : null}
-          {items.map((item) =>
-            item.kind === 'tool' ? (
-              <details key={item.id} className="tool" open={!item.result}>
-                <summary>
-                  {item.name}
-                  {item.ok === false ? ' · failed' : ''}
-                </summary>
-                <pre className="body">{item.args}</pre>
-                {item.result ? <pre className="body muted">{item.result.slice(0, 4000)}</pre> : null}
-              </details>
-            ) : (
-              <div key={item.id} className={`bubble ${item.kind}`}>
-                <div className="who">{item.kind === 'user' ? 'You' : 'Forge'}</div>
-                {item.kind === 'assistant' ? (
-                  <MarkdownBody text={item.text} />
-                ) : (
-                  <div className="body">{item.text}</div>
-                )}
-              </div>
-            ),
-          )}
-          {chatError ? (
-            <p className="err" role="alert">
-              {chatError} Retry send, or open Keys if the model credential is missing.
-            </p>
-          ) : null}
+          <ChatLog items={items} running={running} error={chatError} />
         </div>
         <form
           className="composer"
@@ -453,8 +474,10 @@ export function App() {
           <label>
             <span className="vh">Prompt</span>
             <textarea
+              ref={promptRef}
               id="prompt"
               name="prompt"
+              rows={3}
               value={draft}
               placeholder="What’s moving, and is the book real?"
               onChange={(e) => setDraft(e.target.value)}
@@ -469,6 +492,7 @@ export function App() {
           <button className="send" type="submit" disabled={running || !draft.trim()}>
             Send
           </button>
+          <p className="composer-hint">Enter to send · Shift+Enter for a new line</p>
         </form>
       </section>
 
@@ -479,11 +503,12 @@ export function App() {
           book={book}
           stats={stats}
           inspectError={inspectError}
+          asking={running}
           onPin={(id) => {
             setPinnedId(id)
             setCatalogOpen(true)
           }}
-          onCloseInspect={() => setPinnedId(null)}
+          onAsk={(market) => void askAboutMarket(market)}
         />
       </aside>
 
