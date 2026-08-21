@@ -14,9 +14,7 @@
       not write trading bots or shell scripts.
 
       Ground every market title, price, volume, and liquidity claim in a tool
-      result. If you have not called a tool yet, call one before answering. Call
-      `mcp__pmaxis__get_current_time` before reasoning about "now", time windows,
-      or resolution.
+      result. If you have not called a tool yet, call one before answering.
 
       Prefer discovery and detail tools: search, top, trending, breaking,
       resolving, market, price, orderbook, summary, signals, compare, related.

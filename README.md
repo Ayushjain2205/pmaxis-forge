@@ -1,12 +1,16 @@
 # PMEX Forge
 
-Prediction-markets research harness. **v1** runs on [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `0.1.1-rc.2` and [PMAxis MCP](https://www.pmaxis.trade/llms.txt). No trading.
+Prediction-markets research desk. **v2** runs on [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) `0.1.1-rc.2` and [PMAxis](https://www.pmaxis.trade/llms.txt). No trading.
 
 Product spec: [docs/PRD.md](docs/PRD.md).
 
 ## What you get
 
-`dsh --profile pmex` opens **DeepSeek’s web UI** at `http://127.0.0.1:3080`. The model calls live PMAxis tools (`mcp__pmaxis__*`). Sessions default to the `pmex` preset: research persona, no bash / files / editor.
+`dsh --profile pmex` opens the **Forge desk** at `http://127.0.0.1:3080` — not DeepSeek’s coding UI.
+
+- **Boards** — live Top / Breaking / Resolving lists (PMAxis REST via a host proxy).
+- **Chat** — the `pmex` research agent; `mcp__pmaxis__*` tool calls stay visible.
+- **Inspector** — book and stats for a pinned market (click a row, or pin from a tool result).
 
 ## Prerequisites
 
@@ -23,7 +27,7 @@ dsh --version   # 0.1.1-rc.2
 
 Two keys, two jobs. Neither belongs in git.
 
-1. **OpenRouter** (the model) — open **Settings → Models**, paste the key on the OpenRouter card, save. Or export `OPENROUTER_API_KEY` (env wins). Default model is `deepseek/deepseek-v4-flash` via OpenRouter; change it in the picker. Official DeepSeek still works if you fill that card instead.
+1. **OpenRouter** (the model) — paste on the desk **keys** sheet, or export `OPENROUTER_API_KEY` (env wins). Default model is `deepseek/deepseek-v4-flash` via OpenRouter. Official DeepSeek still works if you fill that field instead.
 2. **PMAxis** (market data) — export before boot:
 
 ```bash
@@ -31,30 +35,43 @@ export PMAXIS_API_KEY=pmx_live_...
 export PMAXIS_API_URL=https://api.pmaxis.trade   # optional, this is the default
 ```
 
-See `.env.example`. The profile fails to start if PMAxis MCP cannot connect (`failOnStartupError`).
+See `.env.example`. The profile fails to start if PMAxis MCP cannot connect (`failOnStartupError`). The desk never sees this key; boards call `/forge/pmaxis/*` on the host.
 
-## Install this bundle into profile `pmex`
+## Install bundles into profile `pmex`
 
 From this repo (pnpm 9 treats the profile as a workspace root, so pass `-w`):
 
 ```bash
-dsh plugin --profile pmex add @deepseek-ai/dsh-web-app@0.1.1-rc.2 -w
+pnpm install
+pnpm --filter desk build
+dsh plugin --profile pmex add -w @deepseek-ai/dsh-web-app@0.1.1-rc.2
+dsh plugin --profile pmex add -w ./packages/dsh-forge-web
 dsh plugin --profile pmex add -w ./packages/dsh-pmaxis
 ```
 
-The first command is only needed on a fresh profile (custom names start as `dsh-base` only). Re-run the second after pulling bundle changes.
+Profile bundles must be `dsh-base` → `@deepseek-ai/dsh-web-app` → `dsh-forge-web` → `dsh-pmaxis`. `dsh-web-app` stays installed for the host/`/api` packages; **Forge replaces its UI** (you should not see DeepSeek chrome).
+
+Re-run the `add` commands after pulling bundle changes. Rebuild the desk (`pnpm --filter desk build`) whenever you change `apps/desk`.
 
 ## Boot
 
 ```bash
+export PMAXIS_API_KEY=pmx_live_...
 dsh --profile pmex
 ```
 
-Browser: `http://127.0.0.1:3080`. Confirm the session preset is **PMEX research** (`pmex`). New sessions use it by default; a blank session can still be switched to `standard` in the UI — don’t, if you want a research-only agent.
+Browser: `http://127.0.0.1:3080`. Confirm the page says **forge**, not DeepSeek Harness.
+
+Dev (Vite on `:5173`, proxies `/api` and `/forge` to `:3080`):
+
+```bash
+dsh --profile pmex --no-open
+pnpm --filter desk dev
+```
 
 ## Eval prompts (live data)
 
-Pass = a `mcp__pmaxis__*` tool call is visible in the trajectory, and numbers match the tool result (not invented). Fail = no tools, hallucinated prices, or bash/file tools.
+Pass = boards fill without the agent, inspector matches the proxy, and a chat turn shows `mcp__pmaxis__*` with numbers that match the tool result. Fail = no tools, hallucinated prices, bash/file tools, or DeepSeek chrome.
 
 1. Top markets by volume right now.
 2. Breaking markets in the last hour — what moved, and is the book real?
@@ -65,7 +82,9 @@ Pass = a `mcp__pmaxis__*` tool call is visible in the trajectory, and numbers ma
 ## Layout
 
 ```text
-packages/dsh-pmaxis/     dsh bundle (MCP row + copies the pmex preset)
+apps/desk/               Vite React desk (builds into dsh-forge-web/dist)
+packages/dsh-forge-web/  host surface: static dist + /forge/pmaxis proxy
+packages/dsh-pmaxis/     MCP row + copies the pmex preset
 docs/PRD.md              product spec
 ```
 
