@@ -22,6 +22,7 @@ export function App() {
   const [book, setBook] = useState<Orderbook>({ bids: [], asks: [] })
   const [stats, setStats] = useState<Record<string, unknown>>({})
   const [inspectError, setInspectError] = useState<string | null>(null)
+  const [inspecting, setInspecting] = useState(false)
 
   const [sessions, setSessions] = useState<SessionRow[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -75,26 +76,37 @@ export function App() {
     if (!pinnedId) {
       setDetail(null)
       setBook({ bids: [], asks: [] })
+      setStats({})
       setInspectError(null)
+      setInspecting(false)
       return
     }
+    setInspecting(true)
+    setDetail(null)
+    setBook({ bids: [], asks: [] })
+    setStats({})
+    setInspectError(null)
     const ac = new AbortController()
     void (async () => {
-      try {
-        setInspectError(null)
-        const [m, b, s] = await Promise.all([
-          fetchMarket(pinnedId, ac.signal),
-          fetchOrderbook(pinnedId, ac.signal),
-          fetchStats(pinnedId, ac.signal),
-        ])
-        if (ac.signal.aborted) return
-        setDetail(m)
-        setBook(b)
-        setStats(s)
-      } catch (error) {
-        if (ac.signal.aborted) return
-        setInspectError(error instanceof Error ? error.message : String(error))
+      const jobs = [
+        fetchMarket(pinnedId, ac.signal).then((m) => {
+          if (!ac.signal.aborted) setDetail(m)
+        }),
+        fetchOrderbook(pinnedId, ac.signal).then((b) => {
+          if (!ac.signal.aborted) setBook(b)
+        }),
+        fetchStats(pinnedId, ac.signal).then((s) => {
+          if (!ac.signal.aborted) setStats(s)
+        }),
+      ]
+      const results = await Promise.allSettled(jobs)
+      if (ac.signal.aborted) return
+      const failed = results.find((r) => r.status === 'rejected')
+      if (failed && failed.status === 'rejected') {
+        const reason = failed.reason
+        setInspectError(reason instanceof Error ? reason.message : String(reason))
       }
+      setInspecting(false)
     })()
     return () => ac.abort()
   }, [pinnedId])
@@ -503,6 +515,7 @@ export function App() {
           book={book}
           stats={stats}
           inspectError={inspectError}
+          inspecting={inspecting}
           asking={running}
           onPin={(id) => {
             setPinnedId(id)

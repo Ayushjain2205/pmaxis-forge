@@ -30,6 +30,7 @@ export function MarketsCatalog({
   book,
   stats,
   inspectError,
+  inspecting,
   asking,
   onPin,
   onAsk,
@@ -39,6 +40,7 @@ export function MarketsCatalog({
   book: Orderbook
   stats: Record<string, unknown>
   inspectError: string | null
+  inspecting: boolean
   asking: boolean
   onPin: (id: string | null) => void
   onAsk: (market: Market) => void
@@ -110,6 +112,7 @@ export function MarketsCatalog({
       setLoading(false)
       setError(null)
     } else {
+      setMarkets([])
       setLoading(true)
     }
     void load(next, ac.signal, Boolean(cached))
@@ -138,7 +141,7 @@ export function MarketsCatalog({
       {pinnedId ? null : (
         <div className="col-head">
           <h2>Markets</h2>
-          <span className="muted">{selectedLabel}</span>
+          <span className="muted">{loading ? `Fetching ${selectedLabel}` : selectedLabel}</span>
         </div>
       )}
       <div className="filters">
@@ -203,11 +206,29 @@ export function MarketsCatalog({
           book={book}
           stats={stats}
           error={inspectError}
+          loading={inspecting}
           onClose={() => onPin(null)}
         />
       ) : (
-        <div className="scroll">
-          {loading ? <p className="empty">Loading {selectedLabel.toLowerCase()}…</p> : null}
+        <div className="scroll" aria-busy={loading || undefined}>
+          {loading && markets.length === 0 ? (
+            <div className="skel-list" aria-hidden>
+              {Array.from({ length: 8 }, (_, i) => (
+                <div key={i} className="row skel-row">
+                  <span className={`skel skel-q skel-w${(i % 3) + 1}`} />
+                  <span className="row-meta">
+                    <span className="skel skel-meta" />
+                    <span className="skel skel-px" />
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {loading ? (
+            <p className="vh" role="status">
+              Fetching {selectedLabel}
+            </p>
+          ) : null}
           {!loading && error ? (
             <p className="empty err" role="alert">
               Markets failed to load. Try another filter, or check the host is up.
@@ -237,26 +258,14 @@ export function MarketsCatalog({
         </div>
       )}
       <div className="ask-bar">
-        <div className="ask-copy">
-          {selected ? (
-            <>
-              <span className="q">{marketTitle(selected)}</span>
-              <span className="row-meta">
-                <span className="px">{formatPx(marketPrice(selected))}</span>
-                {selected.category ? <span className="muted">{selected.category}</span> : null}
-              </span>
-            </>
-          ) : (
-            <span className="muted">Select a market, then ask.</span>
-          )}
-        </div>
         <button
           type="button"
           className="send"
           disabled={!selected || asking}
+          aria-label={selected ? `Ask about ${marketTitle(selected)}` : 'Ask about this'}
           onClick={() => selected && onAsk(selected)}
         >
-          Ask about this
+          {asking ? 'Opening thread…' : 'Ask about this'}
         </button>
       </div>
     </>
