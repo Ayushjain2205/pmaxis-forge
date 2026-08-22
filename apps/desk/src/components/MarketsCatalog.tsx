@@ -184,7 +184,8 @@ export function MarketsCatalog({
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
-        <div className="pills" role="group" aria-label="Boards">
+        <div className="pills">
+          <div className="pill-group" role="group" aria-label="Boards">
           <button
             type="button"
             aria-pressed={!searching && scope.kind === 'all'}
@@ -232,8 +233,9 @@ export function MarketsCatalog({
           >
             Events
           </button>
-        </div>
-        <div className="pills" role="group" aria-label="Categories">
+          </div>
+          <span className="pill-sep" aria-hidden />
+          <div className="pill-group" role="group" aria-label="Categories">
           {categories.map((cat) => (
             <button
               key={cat.slug}
@@ -248,6 +250,7 @@ export function MarketsCatalog({
               {cat.name}
             </button>
           ))}
+          </div>
         </div>
       </div>
       {pinnedId ? (
