@@ -535,7 +535,6 @@ export function App() {
           <button className="send" type="submit" disabled={running || !draft.trim()}>
             Send
           </button>
-          <p className="composer-hint">Enter to send · Shift+Enter for a new line</p>
         </form>
       </section>
 

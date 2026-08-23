@@ -847,13 +847,6 @@ button {
   color: var(--muted);
 }
 
-.composer-hint {
-  grid-column: 1 / -1;
-  margin: 0;
-  font-size: 11px;
-  color: var(--muted);
-}
-
 .send {
   align-self: end;
   background: var(--acid);
