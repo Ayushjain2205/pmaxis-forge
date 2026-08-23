@@ -190,13 +190,13 @@ const CATALOG_TTL_MS = 20_000
 
 export function catalogPath(scope: CatalogScope): string {
   if (scope.kind === 'search') {
-    return `/v1/markets/search?q=${encodeURIComponent(scope.q)}&limit=40`
+    return `/v1/markets/search?q=${encodeURIComponent(scope.q)}&limit=40&status=ACTIVE`
   }
   if (scope.kind === 'all') {
-    return `/v1/markets?limit=40&active=true`
+    return `/v1/markets?limit=40&status=ACTIVE`
   }
   if (scope.kind === 'category') {
-    return `/v1/markets?limit=40&category=${encodeURIComponent(scope.slug)}&active=true`
+    return `/v1/markets?limit=40&category=${encodeURIComponent(scope.slug)}&status=ACTIVE`
   }
   if (scope.kind === 'watching') {
     const ids = loadWatch()
@@ -209,20 +209,33 @@ export function catalogPath(scope: CatalogScope): string {
   if (scope.kind === 'event') {
     return `/v1/events/${encodeURIComponent(scope.id)}/markets?limit=40&status=ACTIVE`
   }
-  return `/v1/markets/${scope.id}?limit=40`
+  return `/v1/markets/${scope.id}?limit=40&status=ACTIVE`
 }
 
 export function peekCatalog(scope: CatalogScope): Market[] | null {
   return catalogCache.get(catalogPath(scope))?.rows ?? null
 }
 
+function activeOnly(rows: Market[]): Market[] {
+  return rows.filter((m) => {
+    const s = (m.status ?? 'ACTIVE').toUpperCase()
+    return s === 'ACTIVE' || s === ''
+  })
+}
+
+function withoutStatus(path: string): string {
+  return path.replace(/([?&])status=ACTIVE&?/, '$1').replace(/[?&]$/, '')
+}
+
 export async function fetchCatalog(scope: CatalogScope, signal?: AbortSignal): Promise<Market[]> {
   if (scope.kind === 'events') return []
+  const strict = !(scope.kind === 'feed' && scope.id === 'breaking')
+  const keep = (rows: Market[]) => (strict ? activeOnly(rows) : rows)
   if (scope.kind === 'watching') {
     const path = catalogPath(scope)
     if (!path) return loadWatch()
     try {
-      const rows = asList(await pmaxis(path, signal))
+      const rows = keep(asList(await pmaxis(path, signal)))
       return rows.length ? rows : loadWatch()
     } catch (error) {
       if (signal?.aborted) throw error
@@ -233,7 +246,14 @@ export async function fetchCatalog(scope: CatalogScope, signal?: AbortSignal): P
   const hit = catalogCache.get(path)
   if (hit && Date.now() - hit.at < CATALOG_TTL_MS) return hit.rows
   try {
-    const rows = asList(await pmaxis(path, signal))
+    let rows: Market[]
+    try {
+      rows = keep(asList(await pmaxis(path, signal)))
+    } catch (error) {
+      if (signal?.aborted || !path.includes('status=ACTIVE')) throw error
+      const fallback = withoutStatus(path)
+      rows = keep(asList(await pmaxis(fallback, signal)))
+    }
     catalogCache.set(path, { at: Date.now(), rows })
     return rows
   } catch (error) {
