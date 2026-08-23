@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useReducer, useState } from 'react'
 import { InspectorSheet } from './InspectorSheet'
 import {
   CORE_CATEGORIES,
   fetchCatalog,
   fetchCategories,
   fetchEvents,
+  fetchMarketDeltas,
   peekCatalog,
+  formatEnds,
   formatPx,
   formatVol,
   marketId,
@@ -16,6 +18,7 @@ import {
   type Category,
   type FeedKind,
   type Market,
+  type MarketDelta,
   type MarketEvent,
   type Orderbook,
 } from '../lib/pmaxis'
@@ -62,6 +65,9 @@ export function MarketsCatalog({
   const [watchTick, setWatchTick] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deltas, setDeltas] = useState<Record<string, MarketDelta>>({})
+  const [lastLoadAt, setLastLoadAt] = useState<number | null>(null)
+  const [, tickClock] = useReducer((n: number) => n + 1, 0)
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(query.trim()), 280)
@@ -114,6 +120,7 @@ export function MarketsCatalog({
       if (signal.aborted) return
       setEvents([])
       setMarkets(rows)
+      setLastLoadAt(Date.now())
       setError(null)
     } catch (e) {
       if (signal.aborted) return
@@ -146,6 +153,37 @@ export function MarketsCatalog({
     }
   }, [catalogKey, searching, debounced, scope, load])
 
+  const idsKey = useMemo(() => markets.map((m) => marketId(m) ?? '').filter(Boolean).join(','), [markets])
+
+  useEffect(() => {
+    const ids = idsKey ? idsKey.split(',') : []
+    if (ids.length === 0) {
+      setDeltas({})
+      return
+    }
+    const ac = new AbortController()
+    const run = () => {
+      void fetchMarketDeltas(ids, ac.signal)
+        .then((d) => {
+          if (!ac.signal.aborted && Object.keys(d).length > 0) {
+            setDeltas((prev) => ({ ...prev, ...d }))
+          }
+        })
+        .catch(() => {})
+    }
+    run()
+    const iv = window.setInterval(run, 120_000)
+    return () => {
+      ac.abort()
+      window.clearInterval(iv)
+    }
+  }, [idsKey])
+
+  useEffect(() => {
+    const iv = window.setInterval(tickClock, 5_000)
+    return () => window.clearInterval(iv)
+  }, [])
+
   const selected = useMemo(() => {
     if (!pinnedId) return null
     return markets.find((m) => marketId(m) === pinnedId) ?? detail
@@ -165,12 +203,19 @@ export function MarketsCatalog({
               ? scope.name
               : categories.find((c) => c.slug === scope.slug)?.name ?? scope.slug
 
+  const stamp =
+    lastLoadAt && !loading
+      ? ` · updated ${Math.max(0, Math.round((Date.now() - lastLoadAt) / 1000))}s ago`
+      : ''
+
   return (
     <>
       {pinnedId ? null : (
         <div className="col-head">
           <h2>Markets</h2>
-          <span className="muted">{loading ? `Fetching ${selectedLabel}` : selectedLabel}</span>
+          <span className="muted">
+            {loading ? `Fetching ${selectedLabel}` : `${selectedLabel}${stamp}`}
+          </span>
         </div>
       )}
       <div className="filters">
@@ -267,6 +312,8 @@ export function MarketsCatalog({
             toggleWatch(market)
             setWatchTick((n) => n + 1)
           }}
+          onAsk={onAsk}
+          asking={asking}
         />
       ) : (
         <div className="scroll" aria-busy={loading || undefined}>
@@ -319,6 +366,10 @@ export function MarketsCatalog({
               ))
             : markets.map((m) => {
             const id = marketId(m)
+            const delta = id ? deltas[id] : undefined
+            const ch = delta?.changePct
+            const ends = formatEnds(m.end_time)
+            const endsSoon = m.end_time ? Date.parse(m.end_time) - Date.now() < 86_400_000 : false
             return (
               <button
                 key={id || marketTitle(m)}
@@ -329,25 +380,26 @@ export function MarketsCatalog({
                 <span className="q">{marketTitle(m)}</span>
                 <span className="row-meta">
                   {m.category ? <span className="muted">{m.category}</span> : null}
+                  {ends ? (
+                    <span className={endsSoon ? 'end soon' : 'end'} title={m.end_time}>
+                      {ends}
+                    </span>
+                  ) : null}
+                  {typeof ch === 'number' && ch !== 0 ? (
+                    <span className={ch > 0 ? 'delta up' : 'delta down'}>
+                      {ch > 0 ? '▲' : '▼'} {Math.abs(ch).toFixed(1)}%
+                    </span>
+                  ) : null}
                   <span className="px">{formatPx(marketPrice(m))}</span>
-                  <span className="vol">{formatVol(m.volume_24h ?? m.volume)}</span>
+                  <span className="vol">
+                    {formatVol(delta?.volume24h ?? m.volume_24h ?? m.volume)}
+                  </span>
                 </span>
               </button>
             )
           })}
         </div>
       )}
-      <div className="ask-bar">
-        <button
-          type="button"
-          className="send"
-          disabled={!selected || asking}
-          aria-label={selected ? `Ask about ${marketTitle(selected)}` : 'Ask about this'}
-          onClick={() => selected && onAsk(selected)}
-        >
-          {asking ? 'Asking…' : 'Ask about this'}
-        </button>
-      </div>
     </>
   )
 }

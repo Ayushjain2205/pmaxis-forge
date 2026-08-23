@@ -100,6 +100,8 @@ export function InspectorSheet({
   onClose,
   onPin,
   onWatch,
+  onAsk,
+  asking,
 }: {
   pinnedId: string
   detail: Market | null
@@ -110,6 +112,8 @@ export function InspectorSheet({
   onClose?: () => void
   onPin: (id: string) => void
   onWatch: (market: Market) => void
+  onAsk?: (market: Market) => void
+  asking?: boolean
 }) {
   const title = detail ? marketTitle(detail) : pinnedId
   const px = detail ? marketPrice(detail) : undefined
@@ -161,26 +165,46 @@ export function InspectorSheet({
   return (
     <div className="inspect-pane" aria-busy={loading || extraLoading || undefined}>
       {onClose ? (
-        <div className="col-head">
+        <header className="inspect-head">
+          <div className="inspect-top">
+            <button type="button" className="ghost" onClick={onClose}>
+              Back
+            </button>
+            <button
+              type="button"
+              className="ghost"
+              aria-pressed={watched}
+              onClick={() =>
+                onWatch({
+                  market_id: pinnedId,
+                  question: title,
+                  price: px,
+                })
+              }
+            >
+              {watched ? '★ Watching' : '☆ Watch'}
+            </button>
+          </div>
           <h2>{title}</h2>
-          <button
-            type="button"
-            className="ghost"
-            aria-pressed={watched}
-            onClick={() =>
-              onWatch({
-                market_id: pinnedId,
-                question: title,
-                price: px,
-              })
-            }
-          >
-            {watched ? 'Watching' : 'Watch'}
-          </button>
-          <button type="button" className="ghost" onClick={onClose}>
-            Back
-          </button>
-        </div>
+          {onAsk ? (
+            <button
+              type="button"
+              className="send"
+              disabled={asking}
+              onClick={() => detail && onAsk(detail)}
+            >
+              {asking ? 'Asking…' : 'Ask about this'}
+            </button>
+          ) : null}
+          <p className="inspect-id">
+            {pinnedId}
+            {extras.health
+              ? ` · ${healthLabel(extras.health)}`
+              : extraLoading
+                ? ' · Fetching path'
+                : ''}
+          </p>
+        </header>
       ) : null}
       <div className="scroll pad">
         {error ? (
@@ -188,10 +212,6 @@ export function InspectorSheet({
             {error}
           </p>
         ) : null}
-        <p className="inspect-id">
-          {pinnedId}
-          {extras.health ? ` · ${healthLabel(extras.health)}` : extraLoading ? ' · Fetching path' : ''}
-        </p>
         <div className="kv">
           <span className="k">Price</span>
           {quotePending && px === undefined ? (

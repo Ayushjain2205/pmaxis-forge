@@ -13,6 +13,13 @@ export type Market = {
   slug?: string
   liquidity?: number
   category?: string
+  end_time?: string
+  stats_24h?: { price_change_pct?: number; volume_24h?: number }
+}
+
+export type MarketDelta = {
+  changePct?: number
+  volume24h?: number
 }
 
 export type Category = {
@@ -462,6 +469,52 @@ export function formatVol(n: number | undefined): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}k`
   return `$${n.toFixed(0)}`
+}
+
+export async function fetchMarketDeltas(
+  ids: string[],
+  signal?: AbortSignal,
+): Promise<Record<string, MarketDelta>> {
+  const out: Record<string, MarketDelta> = {}
+  for (let i = 0; i < ids.length; i += 10) {
+    const chunk = ids.slice(i, i + 10)
+    if (chunk.length === 0) continue
+    const res = await pmaxis<{ data?: unknown[] }>(
+      `/v1/markets/compare?ids=${encodeURIComponent(chunk.join(','))}`,
+      signal,
+    )
+    for (const row of asList(res)) {
+      const m = row as Market
+      const id = marketId(m)
+      if (!id) continue
+      const s = m.stats_24h ?? {}
+      out[id] = {
+        changePct: typeof s.price_change_pct === 'number' ? s.price_change_pct : undefined,
+        volume24h:
+          typeof s.volume_24h === 'number'
+            ? s.volume_24h
+            : typeof m.volume_24h === 'number'
+              ? m.volume_24h
+              : undefined,
+      }
+    }
+  }
+  return out
+}
+
+export function formatEnds(endTime: string | undefined, now = Date.now()): string {
+  if (!endTime) return ''
+  const t = Date.parse(endTime)
+  if (Number.isNaN(t)) return ''
+  const diff = t - now
+  if (diff <= 0) return 'ended'
+  const mins = Math.round(diff / 60_000)
+  if (mins < 60) return `${mins}m`
+  const hours = Math.round(mins / 60)
+  if (hours < 48) return `${hours}h`
+  const days = Math.round(hours / 24)
+  if (days < 30) return `${days}d`
+  return new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 export function idsFromToolText(text: string): string[] {

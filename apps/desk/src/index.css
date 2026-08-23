@@ -336,6 +336,18 @@ button {
   font-size: 11px;
 }
 
+.delta.up {
+  color: var(--win);
+}
+
+.delta.down {
+  color: var(--loss);
+}
+
+.end.soon {
+  color: var(--warn);
+}
+
 .skel {
   display: block;
   height: 0.65rem;
@@ -457,17 +469,6 @@ button {
   flex: 1;
   display: flex;
   flex-direction: column;
-}
-
-.ask-bar {
-  padding: var(--space-3);
-  border-top: 1px solid var(--line);
-  background: var(--ink);
-}
-
-.ask-bar .send {
-  width: 100%;
-  padding: 0.55rem 0.75rem;
 }
 
 .desk:not(.sessions-open) .rail,
@@ -869,6 +870,42 @@ button {
   color: var(--muted);
   font-size: 0.75rem;
   margin: 0 0 var(--space-3);
+}
+
+.inspect-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.inspect-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.inspect-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.inspect-head .send {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+}
+
+.inspect-head .inspect-id {
+  margin: 0;
 }
 
 .inspect-pane h3 {
