@@ -87,16 +87,23 @@ export function App() {
     setStats({})
     setInspectError(null)
     const ac = new AbortController()
+    const iv = window.setInterval(() => {
+      void fetchOrderbook(pinnedId, ac.signal)
+        .then((b) => {
+          if (!ac.signal.aborted) setBook(b ?? { bids: [], asks: [] })
+        })
+        .catch(() => {})
+    }, 4_000)
     void (async () => {
       const jobs = [
         fetchMarket(pinnedId, ac.signal).then((m) => {
-          if (!ac.signal.aborted) setDetail(m)
+          if (!ac.signal.aborted) setDetail(m ?? null)
         }),
         fetchOrderbook(pinnedId, ac.signal).then((b) => {
-          if (!ac.signal.aborted) setBook(b)
+          if (!ac.signal.aborted) setBook(b ?? { bids: [], asks: [] })
         }),
         fetchStats(pinnedId, ac.signal).then((s) => {
-          if (!ac.signal.aborted) setStats(s)
+          if (!ac.signal.aborted) setStats(s && typeof s === 'object' ? s : {})
         }),
       ]
       const results = await Promise.allSettled(jobs)
@@ -107,19 +114,11 @@ export function App() {
         setInspectError(reason instanceof Error ? reason.message : String(reason))
       }
       setInspecting(false)
-      const iv = window.setInterval(() => {
-        void fetchOrderbook(pinnedId, ac.signal)
-          .then((b) => {
-            if (!ac.signal.aborted) setBook(b)
-          })
-          .catch(() => {})
-      }, 4_000)
-      return () => {
-        window.clearInterval(iv)
-        ac.abort()
-      }
     })()
-    return () => ac.abort()
+    return () => {
+      window.clearInterval(iv)
+      ac.abort()
+    }
   }, [pinnedId])
 
   const openSession = useCallback(async (id: string) => {

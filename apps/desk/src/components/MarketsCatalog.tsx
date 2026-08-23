@@ -318,7 +318,7 @@ export function MarketsCatalog({
           ) : null}
           {!loading && error ? (
             <p className="empty err" role="alert">
-              Markets failed to load. Try another filter, or check the host is up.
+              Markets failed to load — {error}
             </p>
           ) : null}
           {!loading && !error && scope.kind === 'events' && events.length === 0 ? (

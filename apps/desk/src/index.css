@@ -1224,7 +1224,26 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
+.crash {
+  max-width: 40rem;
+  margin: 20vh auto;
+  padding: var(--space-4);
+  font-family: var(--font-mono);
+}
+
+.crash h1 {
+  font-family: var(--font-display);
+  margin: 0 0 var(--space-2);
+  color: var(--loss);
+}
+
+.crash pre {
+  white-space: pre-wrap;
+  color: var(--muted);
+  margin: 0 0 var(--space-3);
+}
+
+*,
   *::before,
   *::after {
     scroll-behavior: auto !important;

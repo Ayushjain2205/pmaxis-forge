@@ -62,8 +62,10 @@ function Candles({ candles }: { candles: Candle[] }) {
   const W = 100
   const H = 40
   const pad = 2
-  const lo = Math.min(...candles.map((c) => c.low))
-  const hi = Math.max(...candles.map((c) => c.high))
+  const loRaw = Math.min(...candles.map((c) => c.low))
+  const hiRaw = Math.max(...candles.map((c) => c.high))
+  const lo = Number.isFinite(loRaw) ? loRaw : 0
+  const hi = Number.isFinite(hiRaw) ? hiRaw : 1
   const span = hi - lo || 1
   const slot = W / candles.length
   const bodyW = Math.max(0.8, slot * 0.6)
@@ -142,8 +144,8 @@ export function InspectorSheet({
   asking?: boolean
 }) {
   const title = detail ? marketTitle(detail) : pinnedId
-  const bids = book.bids ?? []
-  const asks = book.asks ?? []
+  const bids = book?.bids ?? []
+  const asks = book?.asks ?? []
   const bestBid = bids[0]?.price
   const bestAsk = asks[0]?.price
   const detailPx = detail ? marketPrice(detail) : undefined
@@ -281,7 +283,7 @@ export function InspectorSheet({
           ) : (
             <span>{detail?.status ?? '—'}</span>
           )}
-          {Object.entries(stats)
+          {Object.entries(stats ?? {})
             .filter(([, v]) => typeof v === 'number' || typeof v === 'string')
             .slice(0, 6)
             .map(([k, v]) => (

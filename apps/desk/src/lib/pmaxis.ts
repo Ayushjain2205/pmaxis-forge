@@ -98,8 +98,12 @@ export function marketPrice(m: Market): number | undefined {
   return typeof n === 'number' ? n : undefined
 }
 
-export async function pmaxis<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const signals = [AbortSignal.timeout(8_000)]
+export async function pmaxis<T>(
+  path: string,
+  signal?: AbortSignal,
+  timeoutMs = 8_000,
+): Promise<T> {
+  const signals = [AbortSignal.timeout(timeoutMs)]
   if (signal) signals.push(signal)
   const res = await fetch(`/forge/pmaxis${path}`, { signal: AbortSignal.any(signals) })
   if (!res.ok) {
@@ -248,11 +252,11 @@ export async function fetchCatalog(scope: CatalogScope, signal?: AbortSignal): P
   try {
     let rows: Market[]
     try {
-      rows = keep(asList(await pmaxis(path, signal)))
+      rows = keep(asList(await pmaxis(path, signal, 45_000)))
     } catch (error) {
       if (signal?.aborted || !path.includes('status=ACTIVE')) throw error
       const fallback = withoutStatus(path)
-      rows = keep(asList(await pmaxis(fallback, signal)))
+      rows = keep(asList(await pmaxis(fallback, signal, 45_000)))
     }
     catalogCache.set(path, { at: Date.now(), rows })
     return rows
