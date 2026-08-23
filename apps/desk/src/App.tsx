@@ -354,6 +354,12 @@ export function App() {
   const visibleSessions = sessions.filter((s) => !s.blank || s.sessionId === sessionId)
   const showScrim = narrow && (sessionsOpen || catalogOpen)
   const liveLabel = running ? 'Agent is running' : chatError ? chatError : 'Agent idle'
+  const sessionTitle =
+    visibleSessions.find((s) => s.sessionId === sessionId && !s.blank)?.title ?? ''
+
+  useEffect(() => {
+    document.title = sessionTitle ? `${sessionTitle} · forge` : 'forge'
+  }, [sessionTitle])
 
   const deskClass = [
     'desk',
@@ -372,23 +378,52 @@ export function App() {
         {liveLabel}
       </div>
 
-      <header className="top">
-        <div className="brand">
-          <h1>forge</h1>
-          <p className="session-name">
-            {visibleSessions.find((s) => s.sessionId === sessionId && !s.blank)?.title ?? ''}
-          </p>
+      {sessionsOpen && !narrow ? (
+        <div className="rail-head">
+          <div className="top-left">
+            <div className="brand">
+              <h1>forge</h1>
+            </div>
+            <button
+              type="button"
+              className="ghost icon-toggle"
+              aria-label="Hide sessions"
+              title="Hide sessions"
+              aria-controls="sessions-rail"
+              onClick={() => setSessionsOpen(false)}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <rect x="1.5" y="2.5" width="13" height="11" rx="1" />
+                <path d="M5.5 2.5v11" />
+              </svg>
+            </button>
+          </div>
         </div>
+      ) : null}
+
+      <header className="top">
+        {!sessionsOpen || narrow ? (
+          <div className="top-left">
+            <div className="brand">
+              <h1>forge</h1>
+            </div>
+            <button
+              type="button"
+              className="ghost icon-toggle rail-toggle"
+              aria-expanded={sessionsOpen}
+              aria-controls="sessions-rail"
+              aria-label={sessionsOpen ? 'Hide sessions' : 'Show sessions'}
+              title={sessionsOpen ? 'Hide sessions' : 'Show sessions'}
+              onClick={() => setSessionsOpen((v) => !v)}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <rect x="1.5" y="2.5" width="13" height="11" rx="1" />
+                <path d="M5.5 2.5v11" />
+              </svg>
+            </button>
+          </div>
+        ) : null}
         <div className="top-actions">
-          <button
-            type="button"
-            className="ghost"
-            aria-expanded={sessionsOpen}
-            aria-controls="sessions-rail"
-            onClick={() => setSessionsOpen((v) => !v)}
-          >
-            Sessions
-          </button>
           {running ? (
             <button type="button" className="ghost" onClick={() => void cancel()}>
               Stop
@@ -399,20 +434,20 @@ export function App() {
           <button
             type="button"
             className="ghost"
-            aria-expanded={catalogOpen}
-            aria-controls="markets-catalog"
-            onClick={() => setCatalogOpen((v) => !v)}
-          >
-            Markets
-          </button>
-          <button
-            type="button"
-            className="ghost"
             aria-expanded={settingsOpen}
             aria-controls="keys-dialog"
             onClick={() => setSettingsOpen(true)}
           >
             Keys
+          </button>
+          <button
+            type="button"
+            className="ghost catalog-toggle"
+            aria-expanded={catalogOpen}
+            aria-controls="markets-catalog"
+            onClick={() => setCatalogOpen((v) => !v)}
+          >
+            Markets
           </button>
         </div>
       </header>
