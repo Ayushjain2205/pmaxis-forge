@@ -203,32 +203,31 @@ export function MarketsCatalog({
               ? scope.name
               : categories.find((c) => c.slug === scope.slug)?.name ?? scope.slug
 
-  const stamp =
-    lastLoadAt && !loading
-      ? ` · updated ${Math.max(0, Math.round((Date.now() - lastLoadAt) / 1000))}s ago`
+  const stamp = loading
+    ? 'Fetching…'
+    : lastLoadAt
+      ? `updated ${Math.max(0, Math.round((Date.now() - lastLoadAt) / 1000))}s ago`
       : ''
 
   return (
     <>
       {pinnedId ? null : (
-        <div className="col-head">
-          <h2>Markets</h2>
-          <span className="muted">
-            {loading ? `Fetching ${selectedLabel}` : `${selectedLabel}${stamp}`}
-          </span>
-        </div>
-      )}
-      <div className="filters">
-        <label>
-          <span className="vh">Search markets</span>
-          <input
-            id={searchId}
-            type="search"
-            placeholder="Search a topic"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
+        <div className="filters">
+          <div className="filter-top">
+            <label>
+              <span className="vh">Search markets</span>
+              <input
+                id={searchId}
+                type="search"
+                placeholder="Search a topic"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </label>
+            <span className="stamp" role="status">
+              {stamp}
+            </span>
+          </div>
         <div className="pills">
           <div className="pill-group" role="group" aria-label="Boards">
           <button
@@ -298,6 +297,7 @@ export function MarketsCatalog({
           </div>
         </div>
       </div>
+      )}
       {pinnedId ? (
         <InspectorSheet
           pinnedId={pinnedId}

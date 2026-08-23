@@ -237,13 +237,18 @@ button {
   border-bottom: 1px solid var(--line);
 }
 
+.filter-top {
+  position: relative;
+  display: flex;
+}
+
 .filters input[type='search'] {
   width: 100%;
   appearance: none;
   border-radius: 0;
   background: var(--ink);
   border: 1px solid var(--line);
-  padding: 0.3rem 0.55rem;
+  padding: 0.3rem 5.75rem 0.3rem 0.55rem;
   caret-color: var(--acid);
 }
 
@@ -251,14 +256,29 @@ button {
   color: var(--muted);
 }
 
+.stamp {
+  position: absolute;
+  right: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .pills {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  column-gap: 0.125rem;
-  row-gap: var(--space-1);
-  max-height: 9.5rem;
-  overflow: auto;
+  gap: 0.125rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pills::-webkit-scrollbar {
+  display: none;
 }
 
 .pill-group {
@@ -266,6 +286,7 @@ button {
 }
 
 .pill-sep {
+  flex: none;
   width: 1px;
   align-self: stretch;
   margin: 0.25rem 0.35rem;
@@ -273,6 +294,8 @@ button {
 }
 
 .pills button {
+  flex: none;
+  white-space: nowrap;
   background: transparent;
   border: 0;
   border-radius: 2px;
