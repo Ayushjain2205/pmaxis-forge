@@ -107,6 +107,17 @@ export function App() {
         setInspectError(reason instanceof Error ? reason.message : String(reason))
       }
       setInspecting(false)
+      const iv = window.setInterval(() => {
+        void fetchOrderbook(pinnedId, ac.signal)
+          .then((b) => {
+            if (!ac.signal.aborted) setBook(b)
+          })
+          .catch(() => {})
+      }, 4_000)
+      return () => {
+        window.clearInterval(iv)
+        ac.abort()
+      }
     })()
     return () => ac.abort()
   }, [pinnedId])

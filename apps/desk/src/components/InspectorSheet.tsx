@@ -116,9 +116,13 @@ export function InspectorSheet({
   asking?: boolean
 }) {
   const title = detail ? marketTitle(detail) : pinnedId
-  const px = detail ? marketPrice(detail) : undefined
   const bids = book.bids ?? []
   const asks = book.asks ?? []
+  const bestBid = bids[0]?.price
+  const bestAsk = asks[0]?.price
+  const detailPx = detail ? marketPrice(detail) : undefined
+  const livePx =
+    detailPx ?? (bestBid !== undefined && bestAsk !== undefined ? (bestBid + bestAsk) / 2 : undefined)
   const bookPending = Boolean(loading) && bids.length === 0 && asks.length === 0
   const quotePending = Boolean(loading) && !detail
   const watched = isWatched(pinnedId)
@@ -178,7 +182,7 @@ export function InspectorSheet({
                 onWatch({
                   market_id: pinnedId,
                   question: title,
-                  price: px,
+                  price: livePx,
                 })
               }
             >
@@ -214,10 +218,10 @@ export function InspectorSheet({
         ) : null}
         <div className="kv">
           <span className="k">Price</span>
-          {quotePending && px === undefined ? (
+          {quotePending && livePx === undefined ? (
             <Bone className="skel-px" />
           ) : (
-            <span className="px">{formatPx(px)}</span>
+            <span className="px">{formatPx(livePx)}</span>
           )}
           <span className="k">Bid / ask</span>
           {quotePending ? (
