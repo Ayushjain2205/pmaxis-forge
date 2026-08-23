@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { InspectorSheet } from './InspectorSheet'
 import {
   CORE_CATEGORIES,
@@ -66,8 +66,6 @@ export function MarketsCatalog({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deltas, setDeltas] = useState<Record<string, MarketDelta>>({})
-  const [lastLoadAt, setLastLoadAt] = useState<number | null>(null)
-  const [, tickClock] = useReducer((n: number) => n + 1, 0)
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(query.trim()), 280)
@@ -120,7 +118,6 @@ export function MarketsCatalog({
       if (signal.aborted) return
       setEvents([])
       setMarkets(rows)
-      setLastLoadAt(Date.now())
       setError(null)
     } catch (e) {
       if (signal.aborted) return
@@ -179,11 +176,6 @@ export function MarketsCatalog({
     }
   }, [idsKey])
 
-  useEffect(() => {
-    const iv = window.setInterval(tickClock, 5_000)
-    return () => window.clearInterval(iv)
-  }, [])
-
   const selected = useMemo(() => {
     if (!pinnedId) return null
     return markets.find((m) => marketId(m) === pinnedId) ?? detail
@@ -203,31 +195,20 @@ export function MarketsCatalog({
               ? scope.name
               : categories.find((c) => c.slug === scope.slug)?.name ?? scope.slug
 
-  const stamp = loading
-    ? 'Fetching…'
-    : lastLoadAt
-      ? `updated ${Math.max(0, Math.round((Date.now() - lastLoadAt) / 1000))}s ago`
-      : ''
-
   return (
     <>
       {pinnedId ? null : (
         <div className="filters">
-          <div className="filter-top">
-            <label>
-              <span className="vh">Search markets</span>
-              <input
-                id={searchId}
-                type="search"
-                placeholder="Search a topic"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </label>
-            <span className="stamp" role="status">
-              {stamp}
-            </span>
-          </div>
+          <label>
+            <span className="vh">Search markets</span>
+            <input
+              id={searchId}
+              type="search"
+              placeholder="Search a topic"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
         <div className="pills">
           <div className="pill-group" role="group" aria-label="Boards">
           <button
