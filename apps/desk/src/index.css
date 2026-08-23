@@ -182,18 +182,6 @@ button {
   margin-left: auto;
 }
 
-.run-state {
-  color: var(--muted);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  min-width: 2.5rem;
-}
-
-.run-state.live {
-  color: var(--acid);
-}
-
 .rail-toggle::after,
 .catalog-toggle::before {
   font-size: 10px;
@@ -433,6 +421,16 @@ button {
   flex-direction: column;
   border-right: 1px solid var(--line);
   background: var(--ink);
+}
+
+.rail-foot {
+  display: flex;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.rail-foot .ghost {
+  width: 100%;
 }
 
 .main {
@@ -991,23 +989,30 @@ button {
   display: none;
 }
 
-.keys-dialog {
+.settings-dialog {
   width: min(28rem, calc(100% - 2rem));
-  background: var(--panel);
+  background:
+    linear-gradient(rgba(232, 240, 230, 0.09), rgba(232, 240, 230, 0.05)),
+    color-mix(in srgb, var(--panel) 42%, transparent);
+  backdrop-filter: blur(28px) saturate(160%) brightness(1.25);
+  -webkit-backdrop-filter: blur(28px) saturate(160%) brightness(1.25);
   color: var(--text);
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--acid) 25%, var(--line));
   padding: 0;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.keys-dialog::backdrop {
-  background: color-mix(in srgb, var(--ink) 78%, black);
+.settings-dialog::backdrop {
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
 }
 
-.keys-form {
+.settings-form {
   padding: var(--space-5);
 }
 
-.keys-form h2 {
+.settings-form h2 {
   font-family: var(--font-display);
   margin: 0 0 var(--space-2);
   font-size: 1.15rem;

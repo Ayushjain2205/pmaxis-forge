@@ -88,23 +88,23 @@ export function KeysDialog({
   return (
     <dialog
       ref={dialogRef}
-      id="keys-dialog"
-      className="keys-dialog"
-      aria-labelledby="keys-title"
+      id="settings-dialog"
+      className="settings-dialog"
+      aria-labelledby="settings-title"
       onClose={onClose}
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose()
       }}
     >
       <form
-        className="keys-form"
+        className="settings-form"
         method="dialog"
         onSubmit={(e) => {
           e.preventDefault()
           void save()
         }}
       >
-        <h2 id="keys-title">Keys and model</h2>
+        <h2 id="settings-title">Settings</h2>
         <p className="lede">
           Stored in ~/.dsh. The PMAxis key stays on the host process, never in this form.
         </p>
@@ -167,7 +167,7 @@ export function KeysDialog({
         </label>
         <div className="dialog-actions">
           <button className="send" type="submit">
-            Save keys
+            Save
           </button>
           <button type="button" className="ghost" onClick={onClose}>
             Close

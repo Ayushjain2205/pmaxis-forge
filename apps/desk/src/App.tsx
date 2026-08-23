@@ -428,18 +428,7 @@ export function App() {
             <button type="button" className="ghost" onClick={() => void cancel()}>
               Stop
             </button>
-          ) : (
-            <span className="run-state">Idle</span>
-          )}
-          <button
-            type="button"
-            className="ghost"
-            aria-expanded={settingsOpen}
-            aria-controls="keys-dialog"
-            onClick={() => setSettingsOpen(true)}
-          >
-            Keys
-          </button>
+          ) : null}
           <button
             type="button"
             className="ghost catalog-toggle"
@@ -490,6 +479,18 @@ export function App() {
               </span>
             </button>
           ))}
+        </div>
+        <div className="rail-foot">
+          <button
+            type="button"
+            className="ghost"
+            aria-haspopup="dialog"
+            aria-expanded={settingsOpen}
+            aria-controls="settings-dialog"
+            onClick={() => setSettingsOpen(true)}
+          >
+            Settings
+          </button>
         </div>
       </nav>
 
