@@ -55,6 +55,14 @@ export type Print = {
   at?: number
 }
 
+export type Candle = {
+  time: number
+  open: number
+  high: number
+  low: number
+  close: number
+}
+
 export type Health = {
   status: string
   detail?: string
@@ -63,7 +71,6 @@ export type Health = {
 export type InspectExtras = {
   health: Health | null
   related: Market[]
-  path: number[]
   trades: Print[]
 }
 
@@ -316,34 +323,82 @@ export async function fetchInspectExtras(
   const jobs = await Promise.allSettled([
     pmaxis<unknown>(`/v1/markets/${encodeURIComponent(id)}/health`, signal),
     pmaxis<unknown>(`/v1/markets/${encodeURIComponent(id)}/related`, signal),
-    fetchPath(id, signal),
     pmaxis<unknown>(`/v1/markets/${encodeURIComponent(id)}/trades?limit=8`, signal),
   ])
   return {
     health: jobs[0].status === 'fulfilled' ? asHealth(jobs[0].value) : null,
     related: jobs[1].status === 'fulfilled' ? asList(jobs[1].value) : [],
-    path: jobs[2].status === 'fulfilled' ? jobs[2].value : [],
-    trades: jobs[3].status === 'fulfilled' ? asTrades(jobs[3].value) : [],
+    trades: jobs[2].status === 'fulfilled' ? asTrades(jobs[2].value) : [],
   }
 }
 
-async function fetchPath(id: string, signal?: AbortSignal): Promise<number[]> {
-  const to = Math.floor(Date.now() / 1000)
-  const from = to - 48 * 60 * 60
+export async function fetchMarketCandles(
+  id: string,
+  resolution: '1m' | '1h',
+  signal?: AbortSignal,
+): Promise<Candle[]> {
   const routes = [
-    `/v1/markets/${encodeURIComponent(id)}/price-history?resolution=1m&limit=48`,
-    `/v1/markets/${encodeURIComponent(id)}/price-history?resolution=1h&limit=48`,
-    `/v1/markets/${encodeURIComponent(id)}/candles?resolution=60&from=${from}&to=${to}`,
+    `/v1/markets/${encodeURIComponent(id)}/price-history?resolution=${resolution}&limit=48`,
+    ...(resolution === '1h'
+      ? [
+          (() => {
+            const to = Math.floor(Date.now() / 1000)
+            return `/v1/markets/${encodeURIComponent(id)}/candles?resolution=60&from=${to - 48 * 60 * 60}&to=${to}`
+          })(),
+        ]
+      : []),
   ]
   for (const route of routes) {
     try {
-      const points = asPath(await pmaxis(route, signal))
-      if (points.length >= 2) return points
+      const candles = asCandles(await pmaxis(route, signal))
+      if (candles.length >= 2) return candles
     } catch (error) {
       if (signal?.aborted) throw error
     }
   }
   return []
+}
+
+function candleOf(row: unknown): Candle | null {
+  const num = (v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN)
+  let t = NaN
+  let o = NaN
+  let h = NaN
+  let l = NaN
+  let c = NaN
+  if (Array.isArray(row)) {
+    ;[t, o, h, l, c] = row.map(num)
+  } else if (row && typeof row === 'object') {
+    const r = row as Record<string, unknown>
+    t = num(r.time ?? r.t ?? r.ts ?? r.timestamp)
+    o = num(r.open ?? r.o)
+    h = num(r.high ?? r.h)
+    l = num(r.low ?? r.l)
+    c = num(r.close ?? r.c)
+    if (!Number.isFinite(o)) o = c
+    if (!Number.isFinite(h)) h = Math.max(o, c)
+    if (!Number.isFinite(l)) l = Math.min(o, c)
+  }
+  if (![t, o, h, l, c].every(Number.isFinite)) return null
+  return { time: t < 1e12 ? t * 1000 : t, open: o, high: h, low: l, close: c }
+}
+
+function asCandles(data: unknown): Candle[] {
+  const rows = Array.isArray(data)
+    ? data
+    : data && typeof data === 'object'
+      ? ((data as Record<string, unknown>).candles ??
+        (data as Record<string, unknown>).data ??
+        (data as Record<string, unknown>).items ??
+        (data as Record<string, unknown>).bars ??
+        [])
+      : []
+  if (!Array.isArray(rows)) return []
+  return rows
+    .map(candleOf)
+    .filter((c): c is Candle => c !== null)
+    .sort((a, b) => a.time - b.time)
+    .slice(-48)
 }
 
 function asHealth(data: unknown): Health | null {
@@ -352,44 +407,6 @@ function asHealth(data: unknown): Health | null {
   const status = String(rec.status ?? rec.freshness ?? rec.state ?? '')
   if (!status) return null
   return { status, detail: typeof rec.detail === 'string' ? rec.detail : undefined }
-}
-
-function closeOf(row: unknown): number {
-  if (typeof row === 'number') return row
-  if (typeof row === 'string') return Number(row)
-  if (Array.isArray(row)) return Number(row[4] ?? row[1] ?? row[0])
-  if (row && typeof row === 'object') {
-    const r = row as Record<string, unknown>
-    return Number(
-      r.avg_price ??
-        r.close ??
-        r.c ??
-        r.price ??
-        r.p ??
-        r.mid ??
-        r.mid_price ??
-        r.value ??
-        r.px ??
-        r.last,
-    )
-  }
-  return NaN
-}
-
-function asPath(data: unknown): number[] {
-  if (Array.isArray(data)) {
-    return data.map(closeOf).filter((n) => Number.isFinite(n)).slice(-48)
-  }
-  if (data && typeof data === 'object') {
-    const rec = data as Record<string, unknown>
-    for (const key of ['c', 'close', 'closes', 'prices', 'history', 'data', 'candles', 'items', 'points', 'series', 'bars']) {
-      if (Array.isArray(rec[key])) {
-        const points = asPath(rec[key])
-        if (points.length) return points
-      }
-    }
-  }
-  return []
 }
 
 function asTrades(data: unknown): Print[] {

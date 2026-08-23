@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import {
   fetchCompare,
   fetchInspectExtras,
+  fetchMarketCandles,
   formatPx,
   formatVol,
   isWatched,
   marketId,
   marketPrice,
   marketTitle,
+  type Candle,
   type Health,
   type InspectExtras,
   type Market,
@@ -55,27 +57,51 @@ function BookLevels({
   )
 }
 
-function PricePath({ points }: { points: number[] }) {
-  if (points.length < 2) return <p className="muted">No path yet.</p>
-  const min = Math.min(...points)
-  const max = Math.max(...points)
-  const span = max - min || 1
-  const d = points
-    .map((p, i) => {
-      const x = (i / (points.length - 1)) * 100
-      const y = 28 - ((p - min) / span) * 26
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`
-    })
-    .join(' ')
-  const up = points[points.length - 1] >= points[0]
+function Candles({ candles }: { candles: Candle[] }) {
+  if (candles.length < 2) return <p className="muted">Not enough data for a chart.</p>
+  const W = 100
+  const H = 40
+  const pad = 2
+  const lo = Math.min(...candles.map((c) => c.low))
+  const hi = Math.max(...candles.map((c) => c.high))
+  const span = hi - lo || 1
+  const slot = W / candles.length
+  const bodyW = Math.max(0.8, slot * 0.6)
+  const y = (p: number) => pad + (1 - (p - lo) / span) * (H - pad * 2)
   return (
-    <div className="path-wrap">
-      <svg viewBox="0 0 100 30" className={up ? 'path up' : 'path down'} aria-hidden>
-        <path d={d} fill="none" stroke="currentColor" strokeWidth="1.25" />
+    <div className="chart-wrap">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="chart" aria-hidden>
+        {candles.map((c, i) => {
+          const x = i * slot + slot / 2
+          const up = c.close >= c.open
+          const top = y(Math.max(c.open, c.close))
+          const bottom = y(Math.min(c.open, c.close))
+          return (
+            <g key={i} className={up ? 'cup' : 'cdn'}>
+              <line
+                x1={x}
+                x2={x}
+                y1={y(c.high)}
+                y2={y(c.low)}
+                stroke="currentColor"
+                strokeWidth="0.6"
+                vectorEffect="non-scaling-stroke"
+              />
+              <rect
+                x={x - bodyW / 2}
+                y={top}
+                width={bodyW}
+                height={Math.max(0.5, bottom - top)}
+                fill="currentColor"
+              />
+            </g>
+          )
+        })}
       </svg>
-      <div className="row-meta">
-        <span className="muted">{formatPx(points[0])}</span>
-        <span className="px">{formatPx(points[points.length - 1])}</span>
+      <div className="chart-axis">
+        <span>{formatPx(lo)}</span>
+        <span className="muted">{candles.length} bars</span>
+        <span className="px">{formatPx(candles[candles.length - 1].close)}</span>
       </div>
     </div>
   )
@@ -130,15 +156,33 @@ export function InspectorSheet({
   const [extras, setExtras] = useState<InspectExtras>({
     health: null,
     related: [],
-    path: [],
     trades: [],
   })
   const [versus, setVersus] = useState<Market[]>([])
   const [extraLoading, setExtraLoading] = useState(true)
+  const [resolution, setResolution] = useState<'1m' | '1h'>('1m')
+  const [candles, setCandles] = useState<Candle[]>([])
+  const [chartLoading, setChartLoading] = useState(true)
 
   useEffect(() => {
     const ac = new AbortController()
-    setExtras({ health: null, related: [], path: [], trades: [] })
+    setChartLoading(true)
+    void (async () => {
+      try {
+        const rows = await fetchMarketCandles(pinnedId, resolution, ac.signal)
+        if (!ac.signal.aborted) setCandles(rows)
+      } catch {
+        /* keep previous chart */
+      } finally {
+        if (!ac.signal.aborted) setChartLoading(false)
+      }
+    })()
+    return () => ac.abort()
+  }, [pinnedId, resolution])
+
+  useEffect(() => {
+    const ac = new AbortController()
+    setExtras({ health: null, related: [], trades: [] })
     setVersus([])
     setExtraLoading(true)
     void (async () => {
@@ -248,11 +292,25 @@ export function InspectorSheet({
             ))}
         </div>
 
-        <h3>Path</h3>
-        {extraLoading && extras.path.length === 0 ? (
+        <div className="chart-head">
+          <h3>Chart</h3>
+          <div className="seg" role="group" aria-label="Chart resolution">
+            {(['1m', '1h'] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                aria-pressed={resolution === r}
+                onClick={() => setResolution(r)}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+        {chartLoading && candles.length === 0 ? (
           <Bone className="skel-path" />
         ) : (
-          <PricePath points={extras.path} />
+          <Candles candles={candles} />
         )}
 
         <div className="book">
@@ -266,18 +324,25 @@ export function InspectorSheet({
           </div>
         </div>
 
-        <h3>Prints</h3>
+        <h3>Recent trades</h3>
         {extraLoading && extras.trades.length === 0 ? (
-          <p className="muted">Fetching prints…</p>
+          <p className="muted">Fetching trades…</p>
         ) : extras.trades.length === 0 ? (
-          <p className="muted">No recent prints.</p>
+          <p className="muted">No recent trades.</p>
         ) : (
-          extras.trades.map((t: Print, i) => (
-            <div key={i} className={`lvl ${t.side.toLowerCase() === 'buy' ? 'bid' : 'ask'}`}>
-              <span>{formatPx(t.price)}</span>
-              <span>{t.size}</span>
-            </div>
-          ))
+          extras.trades.map((t: Print, i) => {
+            const buy = t.side.toLowerCase() === 'buy'
+            return (
+              <div key={i} className={`print ${buy ? 'buy' : 'sell'}`}>
+                <span className="t">
+                  {t.at ? new Date(t.at).toLocaleTimeString([], { hour12: false }) : '—'}
+                </span>
+                <span className="side">{buy ? 'BUY' : 'SELL'}</span>
+                <span className="mono">{formatPx(t.price)}</span>
+                <span className="size">{t.size}</span>
+              </div>
+            )
+          })
         )}
 
         {versus.length >= 2 ? (

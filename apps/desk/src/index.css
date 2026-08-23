@@ -921,24 +921,94 @@ button {
   color: var(--muted);
 }
 
-.path-wrap {
-  margin-bottom: var(--space-2);
+.chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
-.path {
-  display: block;
-  width: 100%;
-  height: 3.25rem;
+.seg {
+  display: flex;
+  border: 1px solid var(--line);
+}
+
+.seg button {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+}
+
+.seg button[aria-pressed='true'] {
+  background: var(--acid-dim);
   color: var(--acid);
 }
 
-.path.down {
+.chart-wrap {
+  border: 1px solid var(--line);
+  background: var(--ink);
+  padding: 0.35rem 0.45rem 0.25rem;
+  margin-bottom: var(--space-3);
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  height: 7.5rem;
+}
+
+.chart .cup {
+  color: var(--win);
+}
+
+.chart .cdn {
   color: var(--loss);
 }
 
-.path-wrap .row-meta {
+.chart-axis {
+  display: flex;
   justify-content: space-between;
-  margin-top: var(--space-1);
+  font-size: 10px;
+  color: var(--muted);
+  padding-top: 0.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.print {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: var(--space-2);
+  font-size: 11px;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.print .t {
+  color: var(--muted);
+}
+
+.print .side {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.print.buy .side,
+.print.buy .mono {
+  color: var(--win);
+}
+
+.print.sell .side,
+.print.sell .mono {
+  color: var(--loss);
+}
+
+.print .size {
+  text-align: right;
+  color: var(--muted);
 }
 
 .skel-path {
