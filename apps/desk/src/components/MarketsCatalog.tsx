@@ -366,7 +366,7 @@ export function MarketsCatalog({
                       {ends}
                     </span>
                   ) : null}
-                  {typeof ch === 'number' && ch !== 0 ? (
+                  {typeof ch === 'number' && Number.isFinite(ch) && ch !== 0 ? (
                     <span className={ch > 0 ? 'delta up' : 'delta down'}>
                       {ch > 0 ? '▲' : '▼'} {Math.abs(ch).toFixed(1)}%
                     </span>

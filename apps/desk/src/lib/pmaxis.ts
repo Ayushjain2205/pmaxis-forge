@@ -499,14 +499,14 @@ function normalizeLevels(raw: unknown): { price: number; size: number }[] {
     .slice(0, 12)
 }
 
-export function formatPx(n: number | undefined): string {
-  if (n === undefined || Number.isNaN(n)) return '—'
+export function formatPx(n: number | undefined | null): string {
+  if (n == null || !Number.isFinite(n)) return '—'
   if (n >= 0.01) return n.toFixed(2)
   return n.toFixed(4)
 }
 
-export function formatVol(n: number | undefined): string {
-  if (n === undefined || Number.isNaN(n)) return ''
+export function formatVol(n: number | undefined | null): string {
+  if (n == null || !Number.isFinite(n)) return ''
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}k`
   return `$${n.toFixed(0)}`
