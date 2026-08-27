@@ -200,7 +200,6 @@ export function catalogPath(scope: CatalogScope): string {
     return `/v1/markets?limit=40&status=ACTIVE`
   }
   if (scope.kind === 'category') {
-    if (scope.slug === 'top') return '/v1/markets/trending?limit=40'
     return `/v1/markets?limit=40&category=${encodeURIComponent(scope.slug)}&status=ACTIVE`
   }
   if (scope.kind === 'watching') {
@@ -214,7 +213,10 @@ export function catalogPath(scope: CatalogScope): string {
   if (scope.kind === 'event') {
     return `/v1/events/${encodeURIComponent(scope.id)}/markets?limit=40&status=ACTIVE`
   }
-  return `/v1/markets/${scope.id}?limit=40&status=ACTIVE`
+  if (scope.kind === 'feed') {
+    return `/v1/markets/${scope.id}?limit=40`
+  }
+  return ''
 }
 
 export function peekCatalog(scope: CatalogScope): Market[] | null {
@@ -235,9 +237,8 @@ function withoutStatus(path: string): string {
 export async function fetchCatalog(scope: CatalogScope, signal?: AbortSignal): Promise<Market[]> {
   if (scope.kind === 'events') return []
   const path = catalogPath(scope)
-  const isTrending = scope.kind === 'category' && scope.slug === 'top'
   const hasStatus = path.includes('status=')
-  const strict = hasStatus && !isTrending && !(scope.kind === 'feed' && scope.id === 'breaking')
+  const strict = hasStatus && !(scope.kind === 'feed' && scope.id === 'breaking')
   const keep = (rows: Market[]) => (strict ? activeOnly(rows) : rows)
   if (scope.kind === 'watching') {
     if (!path) return loadWatch()
