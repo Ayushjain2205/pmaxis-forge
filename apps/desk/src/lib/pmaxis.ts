@@ -235,8 +235,9 @@ function withoutStatus(path: string): string {
 export async function fetchCatalog(scope: CatalogScope, signal?: AbortSignal): Promise<Market[]> {
   if (scope.kind === 'events') return []
   const path = catalogPath(scope)
+  const isTrending = scope.kind === 'category' && scope.slug === 'top'
   const hasStatus = path.includes('status=')
-  const strict = hasStatus && !(scope.kind === 'feed' && scope.id === 'breaking')
+  const strict = hasStatus && !isTrending && !(scope.kind === 'feed' && scope.id === 'breaking')
   const keep = (rows: Market[]) => (strict ? activeOnly(rows) : rows)
   if (scope.kind === 'watching') {
     if (!path) return loadWatch()
