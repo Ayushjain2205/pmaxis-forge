@@ -200,6 +200,7 @@ export function catalogPath(scope: CatalogScope): string {
     return `/v1/markets?limit=40&status=ACTIVE`
   }
   if (scope.kind === 'category') {
+    if (scope.slug === 'top') return '/v1/markets/trending?limit=40'
     return `/v1/markets?limit=40&category=${encodeURIComponent(scope.slug)}&status=ACTIVE`
   }
   if (scope.kind === 'watching') {
@@ -233,10 +234,11 @@ function withoutStatus(path: string): string {
 
 export async function fetchCatalog(scope: CatalogScope, signal?: AbortSignal): Promise<Market[]> {
   if (scope.kind === 'events') return []
-  const strict = !(scope.kind === 'feed' && scope.id === 'breaking')
+  const path = catalogPath(scope)
+  const hasStatus = path.includes('status=')
+  const strict = hasStatus && !(scope.kind === 'feed' && scope.id === 'breaking')
   const keep = (rows: Market[]) => (strict ? activeOnly(rows) : rows)
   if (scope.kind === 'watching') {
-    const path = catalogPath(scope)
     if (!path) return loadWatch()
     try {
       const rows = keep(asList(await pmaxis(path, signal)))
@@ -246,7 +248,6 @@ export async function fetchCatalog(scope: CatalogScope, signal?: AbortSignal): P
       return loadWatch()
     }
   }
-  const path = catalogPath(scope)
   const hit = catalogCache.get(path)
   if (hit && Date.now() - hit.at < CATALOG_TTL_MS) return hit.rows
   try {
