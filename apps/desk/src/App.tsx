@@ -421,29 +421,6 @@ export function App() {
           ) : null}
           <button
             type="button"
-            className="ghost"
-            aria-haspopup="dialog"
-            aria-expanded={globalSettingsOpen}
-            aria-controls="global-settings-dialog"
-            onClick={() => setGlobalSettingsOpen(true)}
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-              <path
-                d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              />
-              <path
-                d="M13.5 8c0-.3-.1-.6-.4-.8l-1-.7.4-1.7-1.5-.9-.7 1c-.3-.1-.5-.2-.8-.2l-.2-1.7H7.3l-.2 1.7c-.3 0-.5.1-.8.2l-.7-1-1.5.9.4 1.7-1 .7c-.2.2-.4.5-.4.8 0 .3.1.6.4.8l1 .7-.4 1.7 1.5.9.7-1c.3.1.5.2.8.2l.2 1.7h1.8l.2-1.7c.3 0 .5-.1.8-.2l.7 1 1.5-.9-.4-1.7 1-.7c.2-.2.4-.5.4-.8Z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.2"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
             className="ghost catalog-toggle"
             aria-expanded={catalogOpen}
             aria-controls="markets-catalog"
@@ -474,6 +451,7 @@ export function App() {
           setAgentSettingsPresetId(presetId)
           setAgentSettingsOpen(true)
         }}
+        onOpenGlobalSettings={() => setGlobalSettingsOpen(true)}
       />
 
       <section className="main" aria-label="Research chat">

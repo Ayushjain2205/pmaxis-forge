@@ -435,6 +435,16 @@ button {
   background: var(--ink);
 }
 
+.rail-foot {
+  display: flex;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.rail-foot .ghost {
+  width: 100%;
+}
+
 .main {
   grid-area: main;
   min-width: 0;

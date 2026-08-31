@@ -20,11 +20,13 @@ export function AgentRail({
   onSelectSession,
   onNewSession,
   onOpenSettings,
+  onOpenGlobalSettings,
 }: {
   activeSessionId: string | null
   onSelectSession: (id: string) => void
   onNewSession: (presetId: string) => void
   onOpenSettings: (presetId: string) => void
+  onOpenGlobalSettings: () => void
 }) {
   const [sessions, setSessions] = useState<SessionRow[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['research']))
@@ -148,6 +150,16 @@ export function AgentRail({
             </div>
           )
         })}
+      </div>
+      <div className="rail-foot">
+        <button
+          type="button"
+          className="ghost"
+          aria-haspopup="dialog"
+          onClick={onOpenGlobalSettings}
+        >
+          Settings
+        </button>
       </div>
     </nav>
   )
