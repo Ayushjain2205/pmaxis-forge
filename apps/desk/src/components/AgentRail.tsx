@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
   AGENT_PRESETS,
-  getDefaultPreset,
   groupByPreset,
   listSessions,
 } from '../lib/agents'
@@ -70,26 +69,53 @@ export function AgentRail({
 
           return (
             <div key={preset.id} className={`agent-group ${hasActive ? 'has-active' : ''}`}>
-              <button
-                type="button"
-                className="agent-folder"
-                aria-expanded={isExpanded}
-                onClick={() => togglePreset(preset.id)}
-              >
-                <span className="agent-icon">{preset.icon}</span>
-                <span className="agent-name">{preset.name}</span>
-                <span className="agent-count">{presetSessions.length || ''}</span>
-                <svg
-                  className="agent-chevron"
-                  width="10"
-                  height="10"
-                  viewBox="0 0 16 16"
-                  aria-hidden="true"
-                  focusable="false"
+              <div className="agent-folder-row">
+                <button
+                  type="button"
+                  className="agent-folder"
+                  aria-expanded={isExpanded}
+                  onClick={() => togglePreset(preset.id)}
                 >
-                  <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="2" />
-                </svg>
-              </button>
+                  <span className="agent-icon">{preset.icon}</span>
+                  <span className="agent-name">{preset.name}</span>
+                  <span className="agent-count">{presetSessions.length || ''}</span>
+                  <svg
+                    className="agent-chevron"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 16 16"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="2" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="ghost agent-settings-btn"
+                  aria-label={`${preset.name} settings`}
+                  title={`${preset.name} settings`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onOpenSettings(preset.id)
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                    <path
+                      d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M13.5 8c0-.3-.1-.6-.4-.8l-1-.7.4-1.7-1.5-.9-.7 1c-.3-.1-.5-.2-.8-.2l-.2-1.7H7.3l-.2 1.7c-.3 0-.5.1-.8.2l-.7-1-1.5.9.4 1.7-1 .7c-.2.2-.4.5-.4.8 0 .3.1.6.4.8l1 .7-.4 1.7 1.5.9.7-1c.3.1.5.2.8.2l.2 1.7h1.8l.2-1.7c.3 0 .5-.1.8-.2l.7 1 1.5-.9-.4-1.7 1-.7c.2-.2.4-.5.4-.8Z"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                    />
+                  </svg>
+                </button>
+              </div>
               {isExpanded ? (
                 <div className="agent-sessions">
                   {presetSessions.length === 0 ? (
@@ -122,16 +148,6 @@ export function AgentRail({
             </div>
           )
         })}
-      </div>
-      <div className="rail-foot">
-        <button
-          type="button"
-          className="ghost"
-          aria-haspopup="dialog"
-          onClick={() => onOpenSettings(getDefaultPreset().id)}
-        >
-          Settings
-        </button>
       </div>
     </nav>
   )

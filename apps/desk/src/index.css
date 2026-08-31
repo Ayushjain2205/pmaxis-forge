@@ -435,16 +435,6 @@ button {
   background: var(--ink);
 }
 
-.rail-foot {
-  display: flex;
-  padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--line);
-}
-
-.rail-foot .ghost {
-  width: 100%;
-}
-
 .main {
   grid-area: main;
   min-width: 0;
@@ -552,7 +542,7 @@ button {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  width: 100%;
+  flex: 1;
   text-align: left;
   background: transparent;
   border: 0;
@@ -561,12 +551,36 @@ button {
   font-weight: 500;
 }
 
-.agent-folder:hover {
+.agent-folder-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+}
+
+.agent-folder-row:hover {
   background: var(--acid-dim);
 }
 
-.agent-group.has-active .agent-folder {
+.agent-group.has-active .agent-folder-row {
   background: var(--acid-dim);
+}
+
+.agent-settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.agent-folder-row:hover .agent-settings-btn {
+  opacity: 1;
+}
+
+.agent-settings-btn:hover {
+  color: var(--text);
 }
 
 .agent-icon {
