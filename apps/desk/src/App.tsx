@@ -389,29 +389,6 @@ export function App() {
         {liveLabel}
       </div>
 
-      {sessionsOpen && !narrow ? (
-        <div className="rail-head">
-          <div className="top-left">
-            <div className="brand">
-              <h1>forge</h1>
-            </div>
-            <button
-              type="button"
-              className="ghost icon-toggle"
-              aria-label="Hide sessions"
-              title="Hide sessions"
-              aria-controls="sessions-rail"
-              onClick={() => setSessionsOpen(false)}
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                <rect x="1.5" y="2.5" width="13" height="11" rx="1" />
-                <path d="M5.5 2.5v11" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       <header className="top">
         {!sessionsOpen || narrow ? (
           <div className="top-left">
