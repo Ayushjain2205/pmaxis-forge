@@ -1,6 +1,6 @@
 /**
  * Forge desk web-runtime: provides webRuntime, serves apps/desk dist,
- * prints the local URL, opens the browser, mounts the PMAxis GET proxy.
+ * prints the local URL, opens the browser, mounts agent-scoped proxies.
  */
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -8,13 +8,38 @@ import { fileURLToPath } from 'node:url'
 import z from '@deepseek-ai/schemastery'
 import * as FrontendStatic from '@deepseek-ai/dsh-host-frontend-static'
 import open from 'open'
-import { mountPmaxisProxy } from './pmaxis-proxy.js'
+import { mountAgentProxy, mountPmaxisProxy } from './pmaxis-proxy.js'
 
 export const name = 'dsh-forge-web'
 export const inject = ['webServer']
 
 const WEB_RUNTIME_SERVICE = 'webRuntime'
 const LOOPBACK_HOST = '127.0.0.1'
+
+/** Agent presets with their proxy config */
+const AGENT_PRESETS = [
+  {
+    id: 'research',
+    name: 'Research',
+    prefix: '/forge/pmaxis',
+    envKey: 'PMAXIS_API_KEY',
+    label: 'PMAxis',
+  },
+  {
+    id: 'copy-trading',
+    name: 'Copy Trading',
+    prefix: '/forge/copy-trading',
+    envKey: 'PMAXIS_API_KEY',
+    label: 'PMAxis',
+  },
+  {
+    id: 'signals',
+    name: 'Signals',
+    prefix: '/forge/signals',
+    envKey: 'PMAXIS_API_KEY',
+    label: 'PMAxis',
+  },
+]
 
 export const Config = z.object({
   openBrowser: z.boolean().default(true),
@@ -47,13 +72,28 @@ export function apply(ctx, config) {
   }
   ctx.provide(WEB_RUNTIME_SERVICE, runtime)
   ctx.plugin(FrontendStatic, { distIndex: resolveDistIndex() })
-  mountPmaxisProxy(ctx)
+
+  /** Mount proxies for each agent preset */
+  for (const preset of AGENT_PRESETS) {
+    mountAgentProxy(ctx, {
+      prefix: preset.prefix,
+      envKey: preset.envKey,
+      label: preset.label,
+    })
+  }
 
   const handoffBrowser = config.openBrowser
   if (config.printUrl || handoffBrowser) {
     const announceReady = () => {
       const webUrl = localWebUrl(ctx)
-      if (config.printUrl) console.log(`forge: ${webUrl}`)
+      if (config.printUrl) {
+        console.log(`forge: ${webUrl}`)
+        console.log(`forge: agent proxies:`)
+        for (const preset of AGENT_PRESETS) {
+          const key = process.env[preset.envKey]
+          console.log(`  ${preset.name}: ${preset.prefix} (${key ? 'key set' : 'NO KEY'})`)
+        }
+      }
       if (handoffBrowser) {
         console.log('forge: opening the default browser; pass --no-open to disable')
         open(webUrl).catch((error) => {

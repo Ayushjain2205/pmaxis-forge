@@ -124,7 +124,7 @@ button {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas:
     'railhead top top'
-    'rail main inspect';
+    'agent-rail main inspect';
   height: 100%;
   min-height: 100%;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
@@ -477,7 +477,7 @@ button {
   flex-direction: column;
 }
 
-.desk:not(.sessions-open) .rail,
+.desk:not(.sessions-open) .agent-rail,
 .desk:not(.sessions-open) .rail-head {
   display: none;
 }
@@ -548,6 +548,208 @@ button {
 .session-meta {
   color: var(--muted);
   font-size: 11px;
+}
+
+/* Agent rail */
+.agent-rail {
+  grid-area: rail;
+  width: var(--rail);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background: var(--ink);
+}
+
+.agent-group {
+  border-bottom: 1px solid var(--line);
+}
+
+.agent-folder {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.agent-folder:hover {
+  background: var(--acid-dim);
+}
+
+.agent-group.has-active .agent-folder {
+  background: var(--acid-dim);
+}
+
+.agent-icon {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+}
+
+.agent-name {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+}
+
+.agent-count {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.agent-chevron {
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+
+.agent-folder[aria-expanded='true'] .agent-chevron {
+  transform: rotate(180deg);
+}
+
+.agent-sessions {
+  padding: 0 0 var(--space-2) var(--space-4);
+}
+
+.agent-sessions .empty {
+  color: var(--muted);
+  font-size: 11px;
+  padding: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.agent-sessions .session-row {
+  border-bottom: none;
+  border-radius: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: 12px;
+}
+
+.agent-sessions .session-row:hover,
+.agent-sessions .session-row[aria-current='true'] {
+  background: var(--acid-dim);
+}
+
+.add-session {
+  width: 100%;
+  text-align: left;
+  padding: var(--space-1) var(--space-3);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.add-session:hover {
+  color: var(--text);
+}
+
+/* Agent settings tabs */
+.agent-tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+}
+
+.agent-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-2);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.agent-tab:last-child {
+  border-right: 0;
+}
+
+.agent-tab:hover {
+  background: var(--acid-dim);
+  color: var(--text);
+}
+
+.agent-tab.active {
+  background: var(--acid-dim);
+  color: var(--acid);
+}
+
+.agent-tab-icon {
+  font-size: 14px;
+}
+
+.agent-settings {
+  margin-bottom: var(--space-3);
+}
+
+.agent-info h3 {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.agent-info .muted {
+  margin: 0 0 var(--space-3);
+}
+
+.agent-tools,
+.agent-keys {
+  border: 1px solid var(--line);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-3);
+}
+
+.agent-tools legend,
+.agent-keys legend {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 0 var(--space-1);
+}
+
+.tool-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.tool-badge {
+  background: var(--acid-dim);
+  color: var(--acid);
+  padding: var(--space-1) var(--space-2);
+  font-size: 11px;
+  border-radius: 0;
+}
+
+.key-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.model-section {
+  border: 1px solid var(--line);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-3);
+}
+
+.model-section legend {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 0 var(--space-1);
 }
 
 .pad {
@@ -1182,7 +1384,7 @@ button {
       'main';
   }
 
-  .rail,
+  .agent-rail,
   .catalog {
     position: fixed;
     top: 0;
@@ -1192,12 +1394,12 @@ button {
     border: 0;
   }
 
-  .desk.sessions-open .rail,
+  .desk.sessions-open .agent-rail,
   .desk.catalog-open .catalog {
     display: flex;
   }
 
-  .rail {
+  .agent-rail {
     left: 0;
     border-right: 1px solid var(--line);
   }

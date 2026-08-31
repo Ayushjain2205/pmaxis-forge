@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { AGENT_PRESETS, getPreset } from '../lib/agents'
 import { rpc } from '../lib/rpc'
 
 type ModelGroup = { id: string; name: string; models: { id: string; name: string }[] }
@@ -6,22 +7,29 @@ type ModelGroup = { id: string; name: string; models: { id: string; name: string
 export function KeysDialog({
   open,
   sessionId,
+  initialPresetId,
   onClose,
 }: {
   open: boolean
   sessionId: string | null
+  initialPresetId?: string
   onClose: () => void
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const [activePreset, setActivePreset] = useState<string>(initialPresetId ?? 'research')
   const [openrouter, setOpenrouter] = useState('')
   const [deepseek, setDeepseek] = useState('')
-  const [orConfigured, setOrConfigured] = useState(false)
-  const [dsConfigured, setDsConfigured] = useState(false)
   const [groups, setGroups] = useState<ModelGroup[]>([])
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+
+  const preset = getPreset(activePreset) ?? AGENT_PRESETS[0]
+
+  useEffect(() => {
+    if (initialPresetId) setActivePreset(initialPresetId)
+  }, [initialPresetId])
 
   useEffect(() => {
     const node = dialogRef.current
@@ -34,11 +42,9 @@ export function KeysDialog({
     if (!open) return
     void (async () => {
       try {
-        const creds = await rpc<{
+        await rpc<{
           credentials: Record<string, { configured: boolean }>
         }>('credentials.describe', { refs: ['OPENROUTER_API_KEY', 'DEEPSEEK_API_KEY'] })
-        setOrConfigured(Boolean(creds.credentials.OPENROUTER_API_KEY?.configured))
-        setDsConfigured(Boolean(creds.credentials.DEEPSEEK_API_KEY?.configured))
         const catalog = await rpc<{ groups: ModelGroup[] }>('llm.models', {})
         setGroups(catalog.groups)
         if (sessionId) {
@@ -68,12 +74,10 @@ export function KeysDialog({
     try {
       if (openrouter.trim()) {
         await rpc('credentials.set', { ref: 'OPENROUTER_API_KEY', value: openrouter.trim() })
-        setOrConfigured(true)
         setOpenrouter('')
       }
       if (deepseek.trim()) {
         await rpc('credentials.set', { ref: 'DEEPSEEK_API_KEY', value: deepseek.trim() })
-        setDsConfigured(true)
         setDeepseek('')
       }
       if (sessionId && provider && model) {
@@ -105,9 +109,51 @@ export function KeysDialog({
         }}
       >
         <h2 id="settings-title">Settings</h2>
-        <p className="lede">
-          Stored in ~/.dsh. The PMAxis key stays on the host process, never in this form.
-        </p>
+
+        <div className="agent-tabs" role="tablist">
+          {AGENT_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              role="tab"
+              aria-selected={activePreset === p.id}
+              className={`agent-tab ${activePreset === p.id ? 'active' : ''}`}
+              onClick={() => {
+                setActivePreset(p.id)
+                setSaved(false)
+              }}
+            >
+              <span className="agent-tab-icon">{p.icon}</span>
+              {p.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="agent-settings" role="tabpanel">
+          <div className="agent-info">
+            <h3>{preset.name}</h3>
+            <p className="muted">{preset.description}</p>
+          </div>
+
+          <fieldset className="agent-tools">
+            <legend>Tools</legend>
+            <div className="tool-list">
+              {preset.tools.map((t) => (
+                <span key={t} className="tool-badge">
+                  {t}
+                </span>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="agent-keys">
+            <legend>API Keys</legend>
+            <p className="key-note">
+              The {preset.name} key is managed by the host process. It never reaches the browser.
+            </p>
+          </fieldset>
+        </div>
+
         {error ? (
           <p className="err" role="alert">
             {error}
@@ -118,53 +164,38 @@ export function KeysDialog({
             Saved. Close this dialog to return to the desk.
           </p>
         ) : null}
-        <label className="field">
-          <span>OpenRouter {orConfigured ? '(set)' : '(missing)'}</span>
-          <input
-            type="password"
-            autoComplete="off"
-            placeholder="sk-or-…"
-            value={openrouter}
-            onChange={(e) => setOpenrouter(e.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span>DeepSeek {dsConfigured ? '(set)' : '(optional)'}</span>
-          <input
-            type="password"
-            autoComplete="off"
-            placeholder="sk-…"
-            value={deepseek}
-            onChange={(e) => setDeepseek(e.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span>Provider</span>
-          <select
-            value={provider}
-            onChange={(e) => {
-              setProvider(e.target.value)
-              const first = groups.find((g) => g.id === e.target.value)?.models[0]
-              if (first) setModel(first.id)
-            }}
-          >
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>Model</span>
-          <select value={model} onChange={(e) => setModel(e.target.value)}>
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </label>
+
+        <fieldset className="model-section">
+          <legend>Model</legend>
+          <label className="field">
+            <span>Provider</span>
+            <select
+              value={provider}
+              onChange={(e) => {
+                setProvider(e.target.value)
+                const first = groups.find((g) => g.id === e.target.value)?.models[0]
+                if (first) setModel(first.id)
+              }}
+            >
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Model</span>
+            <select value={model} onChange={(e) => setModel(e.target.value)}>
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </fieldset>
+
         <div className="dialog-actions">
           <button className="send" type="submit">
             Save

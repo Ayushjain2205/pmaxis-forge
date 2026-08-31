@@ -1,6 +1,7 @@
-/** Allow-listed GET proxy: /forge/pmaxis/* → api.pmaxis.trade. Key stays on the host. */
-
-const PREFIX = '/forge/pmaxis'
+/**
+ * Agent-scoped GET proxy: /forge/{agent}/* → upstream API.
+ * Each agent preset mounts its own proxy with its own API key.
+ */
 
 const EXACT = new Set([
   '/v1/markets',
@@ -25,24 +26,44 @@ export function isAllowedPath(pathname) {
   return EXACT.has(pathname) || DETAIL.test(pathname) || CATEGORY_MARKETS.test(pathname) || EVENT_MARKETS.test(pathname)
 }
 
-export function mountPmaxisProxy(ctx) {
-  const base = (process.env.PMAXIS_API_URL || 'https://api.pmaxis.trade').replace(/\/$/, '')
-  const key = process.env.PMAXIS_API_KEY || ''
+/**
+ * Mount an agent-scoped proxy.
+ * @param {object} ctx - DSH context
+ * @param {object} opts
+ * @param {string} opts.prefix - URL prefix (e.g. '/forge/pmaxis')
+ * @param {string} opts.envKey - Environment variable name for the API key
+ * @param {string} [opts.baseUrl] - Upstream API base URL
+ * @param {string} [opts.label] - Human-readable label for error messages
+ */
+export function mountAgentProxy(ctx, { prefix, envKey, baseUrl, label }) {
+  const base = (baseUrl || process.env.PMAXIS_API_URL || 'https://api.pmaxis.trade').replace(/\/$/, '')
+  const key = process.env[envKey] || ''
 
   ctx.effect(
     () =>
       ctx.webServer.register({
         kind: 'prefix',
-        path: PREFIX,
+        path: prefix,
         handler: (req, res) => {
-          void handle(req, res, base, key)
+          void handle(req, res, { prefix, base, key, label: label || envKey })
         },
       }),
-    'forge: /forge/pmaxis proxy',
+    `forge: ${prefix} proxy`,
   )
 }
 
-async function handle(req, res, base, key) {
+/**
+ * Mount the legacy /forge/pmaxis proxy for backward compatibility.
+ */
+export function mountPmaxisProxy(ctx) {
+  mountAgentProxy(ctx, {
+    prefix: '/forge/pmaxis',
+    envKey: 'PMAXIS_API_KEY',
+    label: 'PMAxis',
+  })
+}
+
+async function handle(req, res, { prefix, base, key, label }) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { allow: 'GET, HEAD' })
     res.end('method not allowed')
@@ -50,13 +71,13 @@ async function handle(req, res, base, key) {
   }
 
   const url = new URL(req.url || '/', 'http://127.0.0.1')
-  if (!url.pathname.startsWith(PREFIX)) {
+  if (!url.pathname.startsWith(prefix)) {
     res.writeHead(404)
     res.end('not found')
     return
   }
 
-  const rest = url.pathname.slice(PREFIX.length) || '/'
+  const rest = url.pathname.slice(prefix.length) || '/'
   if (!isAllowedPath(rest)) {
     res.writeHead(404)
     res.end('not found')
@@ -65,7 +86,7 @@ async function handle(req, res, base, key) {
 
   if (!key) {
     res.writeHead(503, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({ error: 'PMAXIS_API_KEY is not set on the host' }))
+    res.end(JSON.stringify({ error: `${label} API key is not set on the host` }))
     return
   }
 

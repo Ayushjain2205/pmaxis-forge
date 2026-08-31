@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { AgentRail } from './components/AgentRail'
 import { ChatLog } from './components/ChatLog'
 import { KeysDialog } from './components/KeysDialog'
 import { MarketsCatalog } from './components/MarketsCatalog'
@@ -14,7 +15,7 @@ import {
   type Orderbook,
 } from './lib/pmaxis'
 import { respond, rpc } from './lib/rpc'
-import { formatWhen, listSessions, loadHistory, type SessionRow } from './lib/sessions'
+import { listSessions, loadHistory, type SessionRow } from './lib/sessions'
 
 export function App() {
   const [pinnedId, setPinnedId] = useState<string | null>(null)
@@ -34,6 +35,7 @@ export function App() {
   const [running, setRunning] = useState(false)
   const [chatError, setChatError] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsPresetId, setSettingsPresetId] = useState<string>('research')
   const [sessionsOpen, setSessionsOpen] = useState(true)
   const [catalogOpen, setCatalogOpen] = useState(true)
   const [narrow, setNarrow] = useState(false)
@@ -163,7 +165,7 @@ export function App() {
 
   const ensureSession = useCallback(async () => {
     if (sessionId) return sessionId
-    const created = await rpc<{ sessionId: string }>('session.create', { agentPreset: 'pmex' })
+    const created = await rpc<{ sessionId: string }>('session.create', { agentPreset: 'research' })
     setSessionId(created.sessionId)
     sessionIdRef.current = created.sessionId
     void refreshSessions()
@@ -343,14 +345,14 @@ export function App() {
     }
   }
 
-  async function newSession() {
+  async function newSession(presetId: string = 'research') {
     openGen.current += 1
     setItems([])
     setRunning(false)
     setChatError(null)
     toolsRef.current.clear()
     try {
-      const created = await rpc<{ sessionId: string }>('session.create', { agentPreset: 'pmex' })
+      const created = await rpc<{ sessionId: string }>('session.create', { agentPreset: presetId })
       setSessionId(created.sessionId)
       sessionIdRef.current = created.sessionId
       await refreshSessions()
@@ -361,11 +363,10 @@ export function App() {
     }
   }
 
-  const visibleSessions = sessions.filter((s) => !s.blank || s.sessionId === sessionId)
   const showScrim = narrow && (sessionsOpen || catalogOpen)
   const liveLabel = running ? 'Agent is running' : chatError ? chatError : 'Agent idle'
   const sessionTitle =
-    visibleSessions.find((s) => s.sessionId === sessionId && !s.blank)?.title ?? ''
+    sessions.find((s) => s.sessionId === sessionId && !s.blank)?.title ?? ''
 
   useEffect(() => {
     document.title = sessionTitle ? `${sessionTitle} · forge` : 'forge'
@@ -463,46 +464,15 @@ export function App() {
         />
       ) : null}
 
-      <nav className="rail" id="sessions-rail" aria-label="Sessions">
-        <div className="col-head">
-          <h2>Sessions</h2>
-          <button type="button" className="ghost" onClick={() => void newSession()}>
-            New thread
-          </button>
-        </div>
-        <div className="scroll">
-          {visibleSessions.length === 0 ? (
-            <p className="empty">No threads yet. Send a prompt and it lands here.</p>
-          ) : null}
-          {visibleSessions.map((s) => (
-            <button
-              key={s.sessionId}
-              type="button"
-              className="session-row"
-              aria-current={sessionId === s.sessionId || undefined}
-              onClick={() => void openSession(s.sessionId)}
-            >
-              <span className="session-title">{s.blank ? 'New thread' : s.title}</span>
-              <span className="session-meta">
-                {s.running ? 'Live · ' : ''}
-                {formatWhen(s.updatedAt)}
-              </span>
-            </button>
-          ))}
-        </div>
-        <div className="rail-foot">
-          <button
-            type="button"
-            className="ghost"
-            aria-haspopup="dialog"
-            aria-expanded={settingsOpen}
-            aria-controls="settings-dialog"
-            onClick={() => setSettingsOpen(true)}
-          >
-            Settings
-          </button>
-        </div>
-      </nav>
+      <AgentRail
+        activeSessionId={sessionId}
+        onSelectSession={(id) => void openSession(id)}
+        onNewSession={(presetId) => void newSession(presetId)}
+        onOpenSettings={(presetId) => {
+          setSettingsPresetId(presetId)
+          setSettingsOpen(true)
+        }}
+      />
 
       <section className="main" aria-label="Research chat">
         <div className="scroll chat-log" ref={logRef}>
@@ -569,6 +539,7 @@ export function App() {
         <KeysDialog
           open={settingsOpen}
           sessionId={sessionId}
+          initialPresetId={settingsPresetId}
           onClose={() => setSettingsOpen(false)}
         />
       ) : null}
