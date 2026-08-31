@@ -328,7 +328,11 @@ export function MarketsCatalog({
             <p className="empty">
               {scope.kind === 'watching'
                 ? 'Watch a market from inspect to keep it here.'
-                : `No markets in ${selectedLabel.toLowerCase()}.`}
+                : scope.kind === 'feed' && scope.id === 'breaking'
+                  ? 'Nothing breaking right now — check back when news drops.'
+                  : scope.kind === 'feed' && scope.id === 'trending'
+                    ? 'Nothing trending right now — check back in a few minutes.'
+                    : `No markets in ${selectedLabel.toLowerCase()}.`}
             </p>
           ) : null}
           {scope.kind === 'events' && !searching
