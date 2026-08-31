@@ -241,7 +241,12 @@ export async function fetchCatalog(scope: CatalogScope, signal?: AbortSignal): P
   const hit = catalogCache.get(path)
   if (hit && Date.now() - hit.at < CATALOG_TTL_MS) return hit.rows
   try {
-    const rows = asList(await pmaxis(path, signal, 45_000))
+    let rows = asList(await pmaxis(path, signal, 45_000))
+    if (rows.length === 0 && scope.kind === 'category') {
+      await new Promise((r) => setTimeout(r, 1_000))
+      if (signal?.aborted) throw signal.reason
+      rows = asList(await pmaxis(path, signal, 45_000))
+    }
     catalogCache.set(path, { at: Date.now(), rows })
     return rows
   } catch (error) {
