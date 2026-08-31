@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AgentRail } from './components/AgentRail'
 import { ChatLog } from './components/ChatLog'
-import { KeysDialog } from './components/KeysDialog'
+import { GlobalSettingsDialog } from './components/GlobalSettingsDialog'
+import { AgentSettingsDialog } from './components/AgentSettingsDialog'
 import { MarketsCatalog } from './components/MarketsCatalog'
 import { type ChatItem, eventType, extractText, foldHistory } from './lib/chat'
 import { connectMux } from './lib/mux'
@@ -34,8 +35,9 @@ export function App() {
   const [draft, setDraft] = useState('')
   const [running, setRunning] = useState(false)
   const [chatError, setChatError] = useState<string | null>(null)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settingsPresetId, setSettingsPresetId] = useState<string>('research')
+  const [globalSettingsOpen, setGlobalSettingsOpen] = useState(false)
+  const [agentSettingsOpen, setAgentSettingsOpen] = useState(false)
+  const [agentSettingsPresetId, setAgentSettingsPresetId] = useState<string>('research')
   const [sessionsOpen, setSessionsOpen] = useState(true)
   const [catalogOpen, setCatalogOpen] = useState(true)
   const [narrow, setNarrow] = useState(false)
@@ -278,7 +280,7 @@ export function App() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key !== 'Escape' || settingsOpen) return
+      if (e.key !== 'Escape' || globalSettingsOpen || agentSettingsOpen) return
       if (pinnedId) {
         setPinnedId(null)
         return
@@ -291,7 +293,7 @@ export function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pinnedId, catalogOpen, sessionsOpen, narrow, settingsOpen])
+  }, [pinnedId, catalogOpen, sessionsOpen, narrow, globalSettingsOpen, agentSettingsOpen])
 
   async function sendText(text: string) {
     if (!text || running) return
@@ -419,6 +421,29 @@ export function App() {
           ) : null}
           <button
             type="button"
+            className="ghost"
+            aria-haspopup="dialog"
+            aria-expanded={globalSettingsOpen}
+            aria-controls="global-settings-dialog"
+            onClick={() => setGlobalSettingsOpen(true)}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path
+                d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+              <path
+                d="M13.5 8c0-.3-.1-.6-.4-.8l-1-.7.4-1.7-1.5-.9-.7 1c-.3-.1-.5-.2-.8-.2l-.2-1.7H7.3l-.2 1.7c-.3 0-.5.1-.8.2l-.7-1-1.5.9.4 1.7-1 .7c-.2.2-.4.5-.4.8 0 .3.1.6.4.8l1 .7-.4 1.7 1.5.9.7-1c.3.1.5.2.8.2l.2 1.7h1.8l.2-1.7c.3 0 .5-.1.8-.2l.7 1 1.5-.9-.4-1.7 1-.7c.2-.2.4-.5.4-.8Z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.2"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
             className="ghost catalog-toggle"
             aria-expanded={catalogOpen}
             aria-controls="markets-catalog"
@@ -446,8 +471,8 @@ export function App() {
         onSelectSession={(id) => void openSession(id)}
         onNewSession={(presetId) => void newSession(presetId)}
         onOpenSettings={(presetId) => {
-          setSettingsPresetId(presetId)
-          setSettingsOpen(true)
+          setAgentSettingsPresetId(presetId)
+          setAgentSettingsOpen(true)
         }}
       />
 
@@ -512,12 +537,19 @@ export function App() {
         />
       </aside>
 
-      {settingsOpen ? (
-        <KeysDialog
-          open={settingsOpen}
+      {globalSettingsOpen ? (
+        <GlobalSettingsDialog
+          open={globalSettingsOpen}
+          onClose={() => setGlobalSettingsOpen(false)}
+        />
+      ) : null}
+
+      {agentSettingsOpen ? (
+        <AgentSettingsDialog
+          open={agentSettingsOpen}
+          presetId={agentSettingsPresetId}
           sessionId={sessionId}
-          initialPresetId={settingsPresetId}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => setAgentSettingsOpen(false)}
         />
       ) : null}
     </div>

@@ -736,6 +736,23 @@ button {
   font-size: 12px;
 }
 
+.settings-section {
+  border: 1px solid var(--line);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-3);
+}
+
+.settings-section legend {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 0 var(--space-1);
+}
+
+.settings-agent-icon {
+  font-size: 18px;
+  margin-right: var(--space-2);
+}
+
 .model-section {
   border: 1px solid var(--line);
   padding: var(--space-2) var(--space-3);
