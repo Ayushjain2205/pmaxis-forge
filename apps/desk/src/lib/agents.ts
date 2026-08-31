@@ -7,6 +7,7 @@ export type AgentPreset = {
   icon: string
   proxyPrefix: string
   envKey: string
+  fallbackKey: string
   tools: string[]
   systemPrompt: string
   starters: { label: string; text: string }[]
@@ -19,7 +20,8 @@ export const AGENT_PRESETS: AgentPreset[] = [
     description: 'Analyze markets, check orderbooks, track prices.',
     icon: '🔍',
     proxyPrefix: '/forge/pmaxis',
-    envKey: 'PMAXIS_API_KEY',
+    envKey: 'PMAXIS_API_KEY_RESEARCH',
+    fallbackKey: 'PMAXIS_API_KEY',
     tools: ['fetch_market', 'orderbook', 'candles', 'deltas', 'search'],
     systemPrompt:
       'You are a prediction market research analyst. You have access to live market data, orderbooks, candlestick charts, and price deltas. Ground every claim in tool results. When you name a market, cite its live price and book depth.',
@@ -33,8 +35,9 @@ export const AGENT_PRESETS: AgentPreset[] = [
     name: 'Copy Trading',
     description: 'Track what top traders are doing and mirror their moves.',
     icon: '📋',
-    proxyPrefix: '/forge/pmaxis',
-    envKey: 'PMAXIS_API_KEY',
+    proxyPrefix: '/forge/copy-trading',
+    envKey: 'PMAXIS_API_KEY_COPY_TRADING',
+    fallbackKey: 'PMAXIS_API_KEY',
     tools: ['fetch_market', 'orderbook', 'traders', 'positions'],
     systemPrompt:
       'You are a copy-trading assistant. You track top traders on prediction markets, analyze their positions, and help the user mirror profitable strategies. Always cite trader identities and their actual positions from tool results.',
@@ -48,8 +51,9 @@ export const AGENT_PRESETS: AgentPreset[] = [
     name: 'Signals',
     description: 'Get alerted to breaking events and price anomalies.',
     icon: '⚡',
-    proxyPrefix: '/forge/pmaxis',
-    envKey: 'PMAXIS_API_KEY',
+    proxyPrefix: '/forge/signals',
+    envKey: 'PMAXIS_API_KEY_SIGNALS',
+    fallbackKey: 'PMAXIS_API_KEY',
     tools: ['fetch_market', 'signals', 'alerts', 'deltas'],
     systemPrompt:
       'You are a market signals assistant. You surface breaking events, price anomalies, and actionable alerts from prediction markets. Prioritize speed and specificity — name the market, the move, and the magnitude.',

@@ -32,12 +32,13 @@ export function isAllowedPath(pathname) {
  * @param {object} opts
  * @param {string} opts.prefix - URL prefix (e.g. '/forge/pmaxis')
  * @param {string} opts.envKey - Environment variable name for the API key
+ * @param {string} [opts.fallbackKey] - Fallback env var if primary is not set
  * @param {string} [opts.baseUrl] - Upstream API base URL
  * @param {string} [opts.label] - Human-readable label for error messages
  */
-export function mountAgentProxy(ctx, { prefix, envKey, baseUrl, label }) {
+export function mountAgentProxy(ctx, { prefix, envKey, fallbackKey, baseUrl, label }) {
   const base = (baseUrl || process.env.PMAXIS_API_URL || 'https://api.pmaxis.trade').replace(/\/$/, '')
-  const key = process.env[envKey] || ''
+  const key = process.env[envKey] || (fallbackKey ? process.env[fallbackKey] : '') || ''
 
   ctx.effect(
     () =>
@@ -61,6 +62,32 @@ export function mountPmaxisProxy(ctx) {
     envKey: 'PMAXIS_API_KEY',
     label: 'PMAxis',
   })
+}
+
+/**
+ * Mount a /forge/agent-keys endpoint that returns key status per agent.
+ */
+export function mountAgentKeysEndpoint(ctx, agentPresets) {
+  ctx.effect(
+    () =>
+      ctx.webServer.register({
+        kind: 'exact',
+        path: '/forge/agent-keys',
+        handler: (req, res) => {
+          const status = {}
+          for (const preset of agentPresets) {
+            const key = process.env[preset.envKey] || (preset.fallbackKey ? process.env[preset.fallbackKey] : '')
+            status[preset.id] = { configured: Boolean(key) }
+          }
+          res.writeHead(200, {
+            'content-type': 'application/json',
+            'cache-control': 'no-store',
+          })
+          res.end(JSON.stringify({ agents: status }))
+        },
+      }),
+    'forge: agent-keys endpoint',
+  )
 }
 
 async function handle(req, res, { prefix, base, key, label }) {

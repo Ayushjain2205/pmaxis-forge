@@ -746,6 +746,18 @@ button {
   font-size: 12px;
 }
 
+.key-status {
+  font-weight: 500;
+}
+
+.key-set {
+  color: var(--win);
+}
+
+.key-missing {
+  color: var(--loss);
+}
+
 .settings-section {
   border: 1px solid var(--line);
   padding: var(--space-2) var(--space-3);

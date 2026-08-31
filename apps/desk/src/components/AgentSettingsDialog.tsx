@@ -3,6 +3,17 @@ import { AGENT_PRESETS, getPreset } from '../lib/agents'
 import { rpc } from '../lib/rpc'
 
 type ModelGroup = { id: string; name: string; models: { id: string; name: string }[] }
+type AgentKeyStatus = Record<string, { configured: boolean }>
+
+async function fetchAgentKeys(): Promise<AgentKeyStatus> {
+  try {
+    const res = await fetch('/forge/agent-keys', { headers: { accept: 'application/json' } })
+    const data = await res.json()
+    return data.agents ?? {}
+  } catch {
+    return {}
+  }
+}
 
 export function AgentSettingsDialog({
   open,
@@ -21,6 +32,7 @@ export function AgentSettingsDialog({
   const [model, setModel] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [keyStatus, setKeyStatus] = useState<AgentKeyStatus>({})
 
   const preset = getPreset(presetId) ?? AGENT_PRESETS[0]
 
@@ -35,8 +47,12 @@ export function AgentSettingsDialog({
     if (!open) return
     void (async () => {
       try {
-        const catalog = await rpc<{ groups: ModelGroup[] }>('llm.models', {})
+        const [catalog, keys] = await Promise.all([
+          rpc<{ groups: ModelGroup[] }>('llm.models', {}),
+          fetchAgentKeys(),
+        ])
         setGroups(catalog.groups)
+        setKeyStatus(keys)
         if (sessionId) {
           const sm = await rpc<{ current: { provider: string; model: string } }>('session.models', {
             sessionId,
@@ -65,6 +81,8 @@ export function AgentSettingsDialog({
       setError(e instanceof Error ? e.message : String(e))
     }
   }
+
+  const keyConfigured = keyStatus[preset.id]?.configured ?? false
 
   return (
     <dialog
@@ -104,6 +122,21 @@ export function AgentSettingsDialog({
         <div className="agent-info">
           <p className="muted">{preset.description}</p>
         </div>
+
+        <fieldset className="settings-section">
+          <legend>API Key</legend>
+          <p className="key-note">
+            {keyConfigured ? (
+              <span className="key-status key-set">PMAxis key set for this agent</span>
+            ) : (
+              <span className="key-status key-missing">No key set — set {preset.envKey} in your shell profile</span>
+            )}
+          </p>
+          <p className="key-note" style={{ marginTop: 'var(--space-2)' }}>
+            Keys are read from environment variables and never reach the browser.
+            {preset.fallbackKey ? ` Falls back to ${preset.fallbackKey} if unset.` : ''}
+          </p>
+        </fieldset>
 
         <fieldset className="settings-section">
           <legend>Tools</legend>

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import z from '@deepseek-ai/schemastery'
 import * as FrontendStatic from '@deepseek-ai/dsh-host-frontend-static'
 import open from 'open'
-import { mountAgentProxy, mountPmaxisProxy } from './pmaxis-proxy.js'
+import { mountAgentProxy, mountAgentKeysEndpoint, mountPmaxisProxy } from './pmaxis-proxy.js'
 
 export const name = 'dsh-forge-web'
 export const inject = ['webServer']
@@ -22,21 +22,24 @@ const AGENT_PRESETS = [
     id: 'research',
     name: 'Research',
     prefix: '/forge/pmaxis',
-    envKey: 'PMAXIS_API_KEY',
+    envKey: 'PMAXIS_API_KEY_RESEARCH',
+    fallbackKey: 'PMAXIS_API_KEY',
     label: 'PMAxis',
   },
   {
     id: 'copy-trading',
     name: 'Copy Trading',
     prefix: '/forge/copy-trading',
-    envKey: 'PMAXIS_API_KEY',
+    envKey: 'PMAXIS_API_KEY_COPY_TRADING',
+    fallbackKey: 'PMAXIS_API_KEY',
     label: 'PMAxis',
   },
   {
     id: 'signals',
     name: 'Signals',
     prefix: '/forge/signals',
-    envKey: 'PMAXIS_API_KEY',
+    envKey: 'PMAXIS_API_KEY_SIGNALS',
+    fallbackKey: 'PMAXIS_API_KEY',
     label: 'PMAxis',
   },
 ]
@@ -78,9 +81,13 @@ export function apply(ctx, config) {
     mountAgentProxy(ctx, {
       prefix: preset.prefix,
       envKey: preset.envKey,
+      fallbackKey: preset.fallbackKey,
       label: preset.label,
     })
   }
+
+  /** Mount agent key status endpoint */
+  mountAgentKeysEndpoint(ctx, AGENT_PRESETS)
 
   const handoffBrowser = config.openBrowser
   if (config.printUrl || handoffBrowser) {
@@ -90,7 +97,7 @@ export function apply(ctx, config) {
         console.log(`forge: ${webUrl}`)
         console.log(`forge: agent proxies:`)
         for (const preset of AGENT_PRESETS) {
-          const key = process.env[preset.envKey]
+          const key = process.env[preset.envKey] || process.env[preset.fallbackKey]
           console.log(`  ${preset.name}: ${preset.prefix} (${key ? 'key set' : 'NO KEY'})`)
         }
       }
