@@ -77,6 +77,20 @@ export function App() {
   }, [refreshSessions])
 
   useEffect(() => {
+    void (async () => {
+      if (sessionId) return
+      try {
+        const created = await rpc<{ sessionId: string }>('session.create', { agentPreset: 'research' })
+        setSessionId(created.sessionId)
+        sessionIdRef.current = created.sessionId
+        void refreshSessions()
+      } catch {
+        /* non-blocking */
+      }
+    })()
+  }, [sessionId, refreshSessions])
+
+  useEffect(() => {
     if (!pinnedId) {
       setDetail(null)
       setBook({ bids: [], asks: [] })
