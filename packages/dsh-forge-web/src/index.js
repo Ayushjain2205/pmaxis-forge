@@ -105,9 +105,15 @@ export function apply(ctx, config) {
   ctx.effect(
     () =>
       ctx.webServer.register({
-        kind: 'exact',
+        kind: 'prefix',
         path: '/forge/tool-definitions',
         handler: (req, res) => {
+          const url = new URL(req.url || '/', 'http://127.0.0.1')
+          if (url.pathname !== '/forge/tool-definitions') {
+            res.writeHead(404)
+            res.end('not found')
+            return
+          }
           if (req.method !== 'GET') {
             res.writeHead(405)
             res.end('method not allowed')

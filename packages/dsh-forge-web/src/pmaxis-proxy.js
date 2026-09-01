@@ -77,9 +77,15 @@ export function mountAgentKeysEndpoint(ctx, agentPresets) {
   ctx.effect(
     () =>
       ctx.webServer.register({
-        kind: 'exact',
+        kind: 'prefix',
         path: '/forge/agent-keys',
         handler: (req, res) => {
+          const url = new URL(req.url || '/', 'http://127.0.0.1')
+          if (url.pathname !== '/forge/agent-keys') {
+            res.writeHead(404)
+            res.end('not found')
+            return
+          }
           const status = {}
           for (const preset of agentPresets) {
             const key = process.env[preset.envKey] || (preset.fallbackKey ? process.env[preset.fallbackKey] : '')
