@@ -138,7 +138,7 @@ export function AgentRail({
                     >
                       <button
                         type="button"
-                        className="session-row-btn"
+                        className="session-row-main"
                         onClick={() => onSelectSession(s.sessionId)}
                       >
                         <span className="session-title">{s.blank ? 'New thread' : s.title}</span>
@@ -147,19 +147,22 @@ export function AgentRail({
                           {formatWhen(s.updatedAt)}
                         </span>
                       </button>
-                      <button
-                        type="button"
+                      <span
                         className="session-delete-btn"
-                        aria-label="Delete thread"
+                        role="button"
+                        tabIndex={0}
                         title="Delete thread"
-                        onMouseDown={(e) => {
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') onDeleteSession(s.sessionId)
+                        }}
+                        onClick={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
                           onDeleteSession(s.sessionId)
                         }}
                       >
                         ✕
-                      </button>
+                      </span>
                     </div>
                   ))}
                   <button
