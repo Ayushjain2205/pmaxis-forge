@@ -156,8 +156,6 @@ export function App() {
         const listed = await listSessions()
         if (cancelled) return
         setSessions(listed)
-        const last = listed.find((s) => !s.blank)
-        if (last) await openSession(last.sessionId)
       } catch {
         /* first paint can be empty */
       }
