@@ -41,6 +41,7 @@ export function App() {
   const [sessionsOpen, setSessionsOpen] = useState(true)
   const [catalogOpen, setCatalogOpen] = useState(true)
   const [narrow, setNarrow] = useState(false)
+  const [railRefresh, setRailRefresh] = useState(0)
   const logRef = useRef<HTMLDivElement>(null)
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const toolsRef = useRef<Map<string, string>>(new Map())
@@ -49,6 +50,7 @@ export function App() {
   const refreshSessions = useCallback(async () => {
     try {
       setSessions(await listSessions())
+      setRailRefresh((n) => n + 1)
     } catch {
       /* list is best-effort */
     }
@@ -457,6 +459,7 @@ export function App() {
 
       <AgentRail
         activeSessionId={sessionId}
+        refreshTrigger={railRefresh}
         onSelectSession={(id) => void openSession(id)}
         onNewSession={(presetId) => void newSession(presetId)}
         onOpenSettings={(presetId) => {

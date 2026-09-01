@@ -17,12 +17,14 @@ type SessionRow = {
 
 export function AgentRail({
   activeSessionId,
+  refreshTrigger,
   onSelectSession,
   onNewSession,
   onOpenSettings,
   onOpenGlobalSettings,
 }: {
   activeSessionId: string | null
+  refreshTrigger: number
   onSelectSession: (id: string) => void
   onNewSession: (presetId: string) => void
   onOpenSettings: (presetId: string) => void
@@ -46,6 +48,10 @@ export function AgentRail({
       window.clearInterval(t)
     }
   }, [])
+
+  useEffect(() => {
+    void listSessions().then((rows) => setSessions(rows))
+  }, [refreshTrigger])
 
   const groups = groupByPreset(sessions)
 
