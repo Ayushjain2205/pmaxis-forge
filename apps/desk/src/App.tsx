@@ -42,6 +42,7 @@ export function App() {
   const [catalogOpen, setCatalogOpen] = useState(true)
   const [narrow, setNarrow] = useState(false)
   const [railRefresh, setRailRefresh] = useState(0)
+  const deletedRef = useRef(new Set<string>())
   const logRef = useRef<HTMLDivElement>(null)
   const promptRef = useRef<HTMLTextAreaElement>(null)
   const toolsRef = useRef<Map<string, string>>(new Map())
@@ -49,7 +50,8 @@ export function App() {
 
   const refreshSessions = useCallback(async () => {
     try {
-      setSessions(await listSessions())
+      const listed = await listSessions()
+      setSessions(listed.filter((s) => !deletedRef.current.has(s.sessionId)))
       setRailRefresh((n) => n + 1)
     } catch {
       /* list is best-effort */
@@ -380,6 +382,7 @@ export function App() {
     } catch {
       /* best-effort */
     }
+    deletedRef.current.add(id)
     if (sessionId === id) {
       setSessionId(null)
       sessionIdRef.current = null
