@@ -550,18 +550,17 @@ button {
   justify-content: center;
   padding: 0 var(--space-2);
   color: var(--muted);
-  opacity: 0;
-  transition: opacity 0.15s;
-  align-self: stretch;
+  background: transparent;
+  border: 0;
+  font-size: 12px;
+  cursor: pointer;
   flex-shrink: 0;
-}
-
-.session-row:hover .session-delete-btn,
-.session-delete-btn:focus-visible {
-  opacity: 1;
+  opacity: 0.4;
+  transition: opacity 0.15s, color 0.15s;
 }
 
 .session-delete-btn:hover {
+  opacity: 1;
   color: var(--loss);
 }
 

@@ -149,17 +149,16 @@ export function AgentRail({
                       </button>
                       <button
                         type="button"
-                        className="ghost session-delete-btn"
+                        className="session-delete-btn"
                         aria-label="Delete thread"
                         title="Delete thread"
-                        onClick={(e) => {
+                        onMouseDown={(e) => {
+                          e.preventDefault()
                           e.stopPropagation()
                           onDeleteSession(s.sessionId)
                         }}
                       >
-                        <svg width="10" height="10" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                        </svg>
+                        ✕
                       </button>
                     </div>
                   ))}
