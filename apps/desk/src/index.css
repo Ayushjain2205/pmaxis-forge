@@ -524,58 +524,12 @@ button {
   border: 0;
   border-bottom: 1px solid var(--line);
   padding: 0.5rem 0.65rem;
-  padding-right: 1.8rem;
   color: var(--text);
-  position: relative;
 }
 
 .session-row:hover,
 .session-row.active {
   background: var(--acid-dim);
-}
-
-.session-row-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.15rem;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  padding: 0.5rem 0.65rem;
-  color: var(--text);
-  min-width: 0;
-}
-
-.session-delete-btn {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 0;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  border-radius: 3px;
-  opacity: 0;
-  transition: opacity 0.1s;
-}
-
-.session-row:hover .session-delete-btn {
-  opacity: 1;
-}
-
-.session-delete-btn:hover {
-  color: var(--loss);
-  background: rgba(255,60,60,0.15);
 }
 
 .session-title {
@@ -679,10 +633,6 @@ button {
 .agent-sessions .session-row {
   border-bottom: none;
   font-size: 12px;
-}
-
-.agent-sessions .session-row-main {
-  padding: var(--space-1) var(--space-3);
 }
 
 .agent-sessions .session-row:hover,

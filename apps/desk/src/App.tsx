@@ -437,6 +437,18 @@ export function App() {
           </button>
         </div>
         <div className="top-actions">
+          {sessionId ? (
+            <button
+              type="button"
+              className="ghost"
+              style={{ color: 'var(--loss)' }}
+              onClick={() => {
+                if (window.confirm('Delete this thread?')) void deleteSession(sessionId)
+              }}
+            >
+              Delete
+            </button>
+          ) : null}
           {running ? (
             <button type="button" className="ghost" onClick={() => void cancel()}>
               Stop
@@ -470,7 +482,6 @@ export function App() {
         activeSessionId={sessionId}
         refreshTrigger={railRefresh}
         onSelectSession={(id) => void openSession(id)}
-        onDeleteSession={(id) => void deleteSession(id)}
         onNewSession={(presetId) => void newSession(presetId)}
         onOpenSettings={(presetId) => {
           setAgentSettingsPresetId(presetId)

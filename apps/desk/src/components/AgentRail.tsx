@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   AGENT_PRESETS,
   groupByPreset,
@@ -19,7 +19,6 @@ export function AgentRail({
   activeSessionId,
   refreshTrigger,
   onSelectSession,
-  onDeleteSession,
   onNewSession,
   onOpenSettings,
   onOpenGlobalSettings,
@@ -27,7 +26,6 @@ export function AgentRail({
   activeSessionId: string | null
   refreshTrigger: number
   onSelectSession: (id: string) => void
-  onDeleteSession: (id: string) => void
   onNewSession: (presetId: string) => void
   onOpenSettings: (presetId: string) => void
   onOpenGlobalSettings: () => void
@@ -54,22 +52,6 @@ export function AgentRail({
   useEffect(() => {
     void listSessions().then((rows) => setSessions(rows))
   }, [refreshTrigger])
-
-  const deleteRef = useRef(onDeleteSession)
-  deleteRef.current = onDeleteSession
-
-  useEffect(() => {
-    function handleDelete(e: Event) {
-      const target = e.target as HTMLElement
-      const sessionId = target?.getAttribute?.('data-delete-session')
-      if (!sessionId) return
-      e.preventDefault()
-      e.stopPropagation()
-      deleteRef.current(sessionId)
-    }
-    document.addEventListener('click', handleDelete, true)
-    return () => document.removeEventListener('click', handleDelete, true)
-  }, [])
 
   const groups = groupByPreset(sessions)
 
@@ -148,30 +130,18 @@ export function AgentRail({
                     <p className="empty">No threads yet.</p>
                   ) : null}
                   {presetSessions.map((s) => (
-                    <div
+                    <button
                       key={s.sessionId}
+                      type="button"
                       className={`session-row ${activeSessionId === s.sessionId ? 'active' : ''}`}
-                      data-session-id={s.sessionId}
+                      onClick={() => onSelectSession(s.sessionId)}
                     >
-                      <button
-                        type="button"
-                        className="session-row-main"
-                        onClick={() => onSelectSession(s.sessionId)}
-                      >
-                        <span className="session-title">{s.blank ? 'New thread' : s.title}</span>
-                        <span className="session-meta">
-                          {s.running ? 'Live · ' : ''}
-                          {formatWhen(s.updatedAt)}
-                        </span>
-                      </button>
-                      <span
-                        className="session-delete-btn"
-                        data-delete-session={s.sessionId}
-                        title="Delete thread"
-                      >
-                        ✕
+                      <span className="session-title">{s.blank ? 'New thread' : s.title}</span>
+                      <span className="session-meta">
+                        {s.running ? 'Live · ' : ''}
+                        {formatWhen(s.updatedAt)}
                       </span>
-                    </div>
+                    </button>
                   ))}
                   <button
                     type="button"
