@@ -1,19 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { AGENT_PRESETS, getPreset } from '../lib/agents'
 import { rpc } from '../lib/rpc'
+import { ToolSettings } from './ToolSettings'
 
 type ModelGroup = { id: string; name: string; models: { id: string; name: string }[] }
-type AgentKeyStatus = Record<string, { configured: boolean }>
-
-async function fetchAgentKeys(): Promise<AgentKeyStatus> {
-  try {
-    const res = await fetch('/forge/agent-keys', { headers: { accept: 'application/json' } })
-    const data = await res.json()
-    return data.agents ?? {}
-  } catch {
-    return {}
-  }
-}
 
 export function AgentSettingsDialog({
   open,
@@ -31,8 +21,6 @@ export function AgentSettingsDialog({
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
-  const [keyStatus, setKeyStatus] = useState<AgentKeyStatus>({})
 
   const preset = getPreset(presetId) ?? AGENT_PRESETS[0]
 
@@ -47,12 +35,8 @@ export function AgentSettingsDialog({
     if (!open) return
     void (async () => {
       try {
-        const [catalog, keys] = await Promise.all([
-          rpc<{ groups: ModelGroup[] }>('llm.models', {}),
-          fetchAgentKeys(),
-        ])
+        const catalog = await rpc<{ groups: ModelGroup[] }>('llm.models', {})
         setGroups(catalog.groups)
-        setKeyStatus(keys)
         if (sessionId) {
           const sm = await rpc<{ current: { provider: string; model: string } }>('session.models', {
             sessionId,
@@ -69,26 +53,22 @@ export function AgentSettingsDialog({
     })()
   }, [open, sessionId])
 
-  async function save() {
+  async function saveModel() {
     setError(null)
-    setSaved(false)
     try {
       if (sessionId && provider && model) {
         await rpc('session.selectModel', { sessionId, provider, model })
       }
-      setSaved(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
   }
 
-  const keyConfigured = keyStatus[preset.id]?.configured ?? false
-
   return (
     <dialog
       ref={dialogRef}
       id="agent-settings-dialog"
-      className="settings-dialog"
+      className="settings-dialog settings-dialog--wide"
       aria-labelledby="agent-settings-title"
       onClose={onClose}
       onClick={(e) => {
@@ -100,7 +80,7 @@ export function AgentSettingsDialog({
         method="dialog"
         onSubmit={(e) => {
           e.preventDefault()
-          void save()
+          void saveModel()
         }}
       >
         <h2 id="agent-settings-title">
@@ -113,30 +93,10 @@ export function AgentSettingsDialog({
             {error}
           </p>
         ) : null}
-        {saved ? (
-          <p className="ok" role="status">
-            Saved.
-          </p>
-        ) : null}
 
         <div className="agent-info">
           <p className="muted">{preset.description}</p>
         </div>
-
-        <fieldset className="settings-section">
-          <legend>API Key</legend>
-          <p className="key-note">
-            {keyConfigured ? (
-              <span className="key-status key-set">PMAxis key set for this agent</span>
-            ) : (
-              <span className="key-status key-missing">No key set — set {preset.envKey} in your shell profile</span>
-            )}
-          </p>
-          <p className="key-note" style={{ marginTop: 'var(--space-2)' }}>
-            Keys are read from environment variables and never reach the browser.
-            {preset.fallbackKey ? ` Falls back to ${preset.fallbackKey} if unset.` : ''}
-          </p>
-        </fieldset>
 
         <fieldset className="settings-section">
           <legend>Tools</legend>
@@ -148,6 +108,8 @@ export function AgentSettingsDialog({
             ))}
           </div>
         </fieldset>
+
+        <ToolSettings agentId={preset.id} />
 
         <fieldset className="settings-section">
           <legend>Model Override</legend>
@@ -187,7 +149,7 @@ export function AgentSettingsDialog({
 
         <div className="dialog-actions">
           <button className="send" type="submit">
-            Save
+            Save Model
           </button>
           <button type="button" className="ghost" onClick={onClose}>
             Close

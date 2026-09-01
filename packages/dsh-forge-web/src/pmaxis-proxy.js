@@ -33,12 +33,15 @@ export function isAllowedPath(pathname) {
  * @param {string} opts.prefix - URL prefix (e.g. '/forge/pmaxis')
  * @param {string} opts.envKey - Environment variable name for the API key
  * @param {string} [opts.fallbackKey] - Fallback env var if primary is not set
+ * @param {string} [opts.agentId] - Agent ID for settings store lookup
  * @param {string} [opts.baseUrl] - Upstream API base URL
  * @param {string} [opts.label] - Human-readable label for error messages
+ * @param {Function} [opts.resolveKey] - Optional async function to resolve API key per request
  */
-export function mountAgentProxy(ctx, { prefix, envKey, fallbackKey, baseUrl, label }) {
+export function mountAgentProxy(ctx, { prefix, envKey, fallbackKey, agentId, baseUrl, label, resolveKey }) {
   const base = (baseUrl || process.env.PMAXIS_API_URL || 'https://api.pmaxis.trade').replace(/\/$/, '')
-  const key = process.env[envKey] || (fallbackKey ? process.env[fallbackKey] : '') || ''
+  const fallbackKeyValue = fallbackKey ? process.env[fallbackKey] : ''
+  const envKeyValue = process.env[envKey] || ''
 
   ctx.effect(
     () =>
@@ -46,6 +49,9 @@ export function mountAgentProxy(ctx, { prefix, envKey, fallbackKey, baseUrl, lab
         kind: 'prefix',
         path: prefix,
         handler: (req, res) => {
+          const key = resolveKey
+            ? resolveKey(agentId, 'pmaxis', 'apiKey', envKey, fallbackKey)
+            : envKeyValue || fallbackKeyValue
           void handle(req, res, { prefix, base, key, label: label || envKey })
         },
       }),

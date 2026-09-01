@@ -9,6 +9,8 @@ import z from '@deepseek-ai/schemastery'
 import * as FrontendStatic from '@deepseek-ai/dsh-host-frontend-static'
 import open from 'open'
 import { mountAgentProxy, mountAgentKeysEndpoint, mountPmaxisProxy } from './pmaxis-proxy.js'
+import { mountSettingsStore, resolveToolSetting } from './settings-store.js'
+import { TOOL_DEFINITIONS, TOOL_DEFINITIONS_GLOBAL } from './tool-definitions.js'
 
 export const name = 'dsh-forge-web'
 export const inject = ['webServer']
@@ -82,12 +84,44 @@ export function apply(ctx, config) {
       prefix: preset.prefix,
       envKey: preset.envKey,
       fallbackKey: preset.fallbackKey,
+      agentId: preset.id,
       label: preset.label,
+      resolveKey: (agentId, toolId, fieldId, envKey, fallbackKey) =>
+        resolveToolSetting(agentId, toolId, fieldId, envKey) ||
+        resolveToolSetting(agentId, toolId, fieldId, fallbackKey) ||
+        process.env[envKey] ||
+        process.env[fallbackKey] ||
+        '',
     })
   }
 
   /** Mount agent key status endpoint */
   mountAgentKeysEndpoint(ctx, AGENT_PRESETS)
+
+  /** Mount settings store */
+  mountSettingsStore(ctx)
+
+  /** Mount tool definitions endpoint */
+  ctx.effect(
+    () =>
+      ctx.webServer.register({
+        kind: 'exact',
+        path: '/forge/tool-definitions',
+        handler: (req, res) => {
+          if (req.method !== 'GET') {
+            res.writeHead(405)
+            res.end('method not allowed')
+            return
+          }
+          res.writeHead(200, {
+            'content-type': 'application/json',
+            'cache-control': 'no-store',
+          })
+          res.end(JSON.stringify({ agents: TOOL_DEFINITIONS, global: TOOL_DEFINITIONS_GLOBAL }))
+        },
+      }),
+    'forge: tool-definitions endpoint',
+  )
 
   const handoffBrowser = config.openBrowser
   if (config.printUrl || handoffBrowser) {
