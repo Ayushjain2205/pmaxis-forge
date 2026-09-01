@@ -15,7 +15,7 @@
           - '-y'
           - '@pmaxis/mcp-server'
         env:
-          PMAXIS_API_KEY: !!js process.env.PMAXIS_API_KEY ?? ''
+          PMAXIS_API_KEY: !!js process.env.PMAXIS_API_KEY_RESEARCH || process.env.PMAXIS_API_KEY_COPY_TRADING || process.env.PMAXIS_API_KEY_SIGNALS || process.env.PMAXIS_API_KEY || ''
           PMAXIS_API_URL: https://api.pmaxis.trade
         failOnStartupError: true
 
