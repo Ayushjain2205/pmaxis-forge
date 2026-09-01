@@ -515,21 +515,52 @@ button {
 
 .session-row {
   display: flex;
-  flex-direction: column;
   align-items: stretch;
-  gap: 0.15rem;
+  gap: 0;
   width: 100%;
   text-align: left;
   background: transparent;
   border: 0;
   border-bottom: 1px solid var(--line);
-  padding: 0.5rem 0.65rem;
   color: var(--text);
 }
 
+.session-row-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.15rem;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0.5rem 0.65rem;
+  color: var(--text);
+  min-width: 0;
+}
+
 .session-row:hover,
-.session-row[aria-current='true'] {
+.session-row.active {
   background: var(--acid-dim);
+}
+
+.session-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-2);
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+  align-self: stretch;
+}
+
+.session-row:hover .session-delete-btn {
+  opacity: 1;
+}
+
+.session-delete-btn:hover {
+  color: var(--loss);
 }
 
 .session-title {
@@ -620,7 +651,7 @@ button {
 }
 
 .agent-sessions {
-  padding: 0 0 var(--space-2) var(--space-4);
+  padding: 0 0 var(--space-2) 0;
 }
 
 .agent-sessions .empty {
@@ -632,9 +663,11 @@ button {
 
 .agent-sessions .session-row {
   border-bottom: none;
-  border-radius: 0;
-  padding: var(--space-1) var(--space-3);
   font-size: 12px;
+}
+
+.agent-sessions .session-row-btn {
+  padding: var(--space-1) var(--space-3);
 }
 
 .agent-sessions .session-row:hover,

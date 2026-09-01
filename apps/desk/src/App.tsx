@@ -133,6 +133,7 @@ export function App() {
     setSessionId(id)
     sessionIdRef.current = id
     toolsRef.current.clear()
+    window.location.hash = `#/session/${id}`
     if (window.matchMedia('(max-width: 960px)').matches) setSessionsOpen(false)
     try {
       const hist = await loadHistory(id)
@@ -156,6 +157,14 @@ export function App() {
         const listed = await listSessions()
         if (cancelled) return
         setSessions(listed)
+        const hash = window.location.hash
+        const match = hash.match(/^#\/session\/(.+)$/)
+        if (match) {
+          const targetId = match[1]
+          if (listed.some((s) => s.sessionId === targetId)) {
+            await openSession(targetId)
+          }
+        }
       } catch {
         /* first paint can be empty */
       }
@@ -365,6 +374,21 @@ export function App() {
     }
   }
 
+  async function deleteSession(id: string) {
+    try {
+      await rpc('session.delete', { sessionId: id })
+      if (sessionId === id) {
+        setSessionId(null)
+        sessionIdRef.current = null
+        setItems([])
+        window.location.hash = ''
+      }
+      await refreshSessions()
+    } catch {
+      /* ignore */
+    }
+  }
+
   const showScrim = narrow && (sessionsOpen || catalogOpen)
   const liveLabel = running ? 'Agent is running' : chatError ? chatError : 'Agent idle'
   const sessionTitle =
@@ -445,6 +469,7 @@ export function App() {
         activeSessionId={sessionId}
         refreshTrigger={railRefresh}
         onSelectSession={(id) => void openSession(id)}
+        onDeleteSession={(id) => void deleteSession(id)}
         onNewSession={(presetId) => void newSession(presetId)}
         onOpenSettings={(presetId) => {
           setAgentSettingsPresetId(presetId)

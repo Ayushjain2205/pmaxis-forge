@@ -19,6 +19,7 @@ export function AgentRail({
   activeSessionId,
   refreshTrigger,
   onSelectSession,
+  onDeleteSession,
   onNewSession,
   onOpenSettings,
   onOpenGlobalSettings,
@@ -26,6 +27,7 @@ export function AgentRail({
   activeSessionId: string | null
   refreshTrigger: number
   onSelectSession: (id: string) => void
+  onDeleteSession: (id: string) => void
   onNewSession: (presetId: string) => void
   onOpenSettings: (presetId: string) => void
   onOpenGlobalSettings: () => void
@@ -130,19 +132,36 @@ export function AgentRail({
                     <p className="empty">No threads yet.</p>
                   ) : null}
                   {presetSessions.map((s) => (
-                    <button
+                    <div
                       key={s.sessionId}
-                      type="button"
-                      className="session-row"
-                      aria-current={activeSessionId === s.sessionId || undefined}
-                      onClick={() => onSelectSession(s.sessionId)}
+                      className={`session-row ${activeSessionId === s.sessionId ? 'active' : ''}`}
                     >
-                      <span className="session-title">{s.blank ? 'New thread' : s.title}</span>
-                      <span className="session-meta">
-                        {s.running ? 'Live · ' : ''}
-                        {formatWhen(s.updatedAt)}
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        className="session-row-btn"
+                        onClick={() => onSelectSession(s.sessionId)}
+                      >
+                        <span className="session-title">{s.blank ? 'New thread' : s.title}</span>
+                        <span className="session-meta">
+                          {s.running ? 'Live · ' : ''}
+                          {formatWhen(s.updatedAt)}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost session-delete-btn"
+                        aria-label="Delete thread"
+                        title="Delete thread"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (confirm('Delete this thread?')) onDeleteSession(s.sessionId)
+                        }}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                        </svg>
+                      </button>
+                    </div>
                   ))}
                   <button
                     type="button"
