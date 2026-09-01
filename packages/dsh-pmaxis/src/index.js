@@ -21,7 +21,10 @@ export const apply = () => {
   }
 
   const src = join(dirname(fileURLToPath(import.meta.url)), '..', 'presets', 'pmex')
-  const dest = join(dshHome(), '.agent-presets', 'pmex')
-  mkdirSync(dirname(dest), { recursive: true })
-  cpSync(src, dest, { recursive: true })
+  const presetIds = ['pmex', 'research', 'copy-trading', 'signals']
+  for (const id of presetIds) {
+    const dest = join(dshHome(), '.agent-presets', id)
+    mkdirSync(dirname(dest), { recursive: true })
+    cpSync(src, dest, { recursive: true })
+  }
 }
