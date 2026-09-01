@@ -2,8 +2,9 @@
  * Forge desk web-runtime: provides webRuntime, serves apps/desk dist,
  * prints the local URL, opens the browser, mounts agent-scoped proxies.
  */
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import z from '@deepseek-ai/schemastery'
 import * as FrontendStatic from '@deepseek-ai/dsh-host-frontend-static'
@@ -127,6 +128,46 @@ export function apply(ctx, config) {
         },
       }),
     'forge: tool-definitions endpoint',
+  )
+
+  /** Mount session delete endpoint */
+  ctx.effect(
+    () =>
+      ctx.webServer.register({
+        kind: 'prefix',
+        path: '/forge/sessions',
+        handler: (req, res) => {
+          const url = new URL(req.url || '/', 'http://127.0.0.1')
+          const rest = url.pathname.slice('/forge/sessions'.length)
+          const match = rest.match(/^\/([a-f0-9-]+)\/delete$/)
+          if (!match || req.method !== 'POST') {
+            res.writeHead(404)
+            res.end('not found')
+            return
+          }
+          const sessionId = match[1]
+          const dshHome = process.env.DSH_HOME || join(homedir(), '.dsh')
+          const sessionsRoot = join(dshHome, 'sessions')
+          try {
+            const dirs = readdirSync(sessionsRoot)
+            for (const dir of dirs) {
+              const sessionDir = join(sessionsRoot, dir, `session-${sessionId}`)
+              if (existsSync(sessionDir)) {
+                rmSync(sessionDir, { recursive: true, force: true })
+                res.writeHead(200, { 'content-type': 'application/json' })
+                res.end(JSON.stringify({ ok: true }))
+                return
+              }
+            }
+            res.writeHead(404, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ error: 'session not found' }))
+          } catch (e) {
+            res.writeHead(500, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+          }
+        },
+      }),
+    'forge: session delete endpoint',
   )
 
   const handoffBrowser = config.openBrowser

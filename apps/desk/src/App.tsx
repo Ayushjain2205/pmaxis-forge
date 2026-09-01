@@ -375,6 +375,11 @@ export function App() {
   }
 
   async function deleteSession(id: string) {
+    try {
+      await fetch(`/forge/sessions/${id}/delete`, { method: 'POST' })
+    } catch {
+      /* best-effort */
+    }
     if (sessionId === id) {
       setSessionId(null)
       sessionIdRef.current = null
