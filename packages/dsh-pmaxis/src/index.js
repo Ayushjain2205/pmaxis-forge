@@ -15,8 +15,8 @@ function dshHome() {
 
 export const apply = () => {
   if (!process.env.PMAXIS_API_KEY) {
-    throw new Error(
-      'PMAXIS_API_KEY is required. Export it before running `dsh --profile pmex`.',
+    console.warn(
+      'forge: PMAXIS_API_KEY not set. You can configure API keys per-agent in Settings.',
     )
   }
 
