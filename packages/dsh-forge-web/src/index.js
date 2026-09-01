@@ -146,12 +146,13 @@ export function apply(ctx, config) {
             return
           }
           const sessionId = match[1]
+          const dirName = sessionId.startsWith('session-') ? sessionId : `session-${sessionId}`
           const dshHome = process.env.DSH_HOME || join(homedir(), '.dsh')
           const sessionsRoot = join(dshHome, 'sessions')
           try {
             const dirs = readdirSync(sessionsRoot)
             for (const dir of dirs) {
-              const sessionDir = join(sessionsRoot, dir, `session-${sessionId}`)
+              const sessionDir = join(sessionsRoot, dir, dirName)
               if (existsSync(sessionDir)) {
                 rmSync(sessionDir, { recursive: true, force: true })
                 res.writeHead(200, { 'content-type': 'application/json' })

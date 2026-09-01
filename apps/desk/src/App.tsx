@@ -375,13 +375,10 @@ export function App() {
   }
 
   async function deleteSession(id: string) {
-    console.log('[forge] deleteSession called with', id)
     try {
-      const res = await fetch(`/forge/sessions/${id}/delete`, { method: 'POST' })
-      const body = await res.text()
-      console.log('[forge] delete response', res.status, body)
-    } catch (e) {
-      console.error('[forge] delete fetch error', e)
+      await fetch(`/forge/sessions/${id}/delete`, { method: 'POST' })
+    } catch {
+      /* best-effort */
     }
     if (sessionId === id) {
       setSessionId(null)
@@ -446,7 +443,6 @@ export function App() {
               className="ghost"
               style={{ color: 'var(--loss)' }}
               onClick={() => {
-                console.log('[forge] delete button clicked, sessionId=', sessionId)
                 if (window.confirm('Delete this thread?')) void deleteSession(sessionId)
               }}
             >
