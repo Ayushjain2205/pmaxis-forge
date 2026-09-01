@@ -139,7 +139,7 @@ export function apply(ctx, config) {
         handler: (req, res) => {
           const url = new URL(req.url || '/', 'http://127.0.0.1')
           const rest = url.pathname.slice('/forge/sessions'.length)
-          const match = rest.match(/^\/([a-f0-9-]+)\/delete$/)
+          const match = rest.match(/^\/(.+?)\/delete$/)
           if (!match || req.method !== 'POST') {
             res.writeHead(404)
             res.end('not found')
