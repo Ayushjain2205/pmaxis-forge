@@ -553,9 +553,11 @@ button {
   opacity: 0;
   transition: opacity 0.15s;
   align-self: stretch;
+  flex-shrink: 0;
 }
 
-.session-row:hover .session-delete-btn {
+.session-row:hover .session-delete-btn,
+.session-delete-btn:focus-visible {
   opacity: 1;
 }
 

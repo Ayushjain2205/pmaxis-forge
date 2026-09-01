@@ -154,7 +154,7 @@ export function AgentRail({
                         title="Delete thread"
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (confirm('Delete this thread?')) onDeleteSession(s.sessionId)
+                          onDeleteSession(s.sessionId)
                         }}
                       >
                         <svg width="10" height="10" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
