@@ -375,18 +375,14 @@ export function App() {
   }
 
   async function deleteSession(id: string) {
-    try {
-      await rpc('session.delete', { sessionId: id })
-      if (sessionId === id) {
-        setSessionId(null)
-        sessionIdRef.current = null
-        setItems([])
-        window.location.hash = ''
-      }
-      await refreshSessions()
-    } catch {
-      /* ignore */
+    if (sessionId === id) {
+      setSessionId(null)
+      sessionIdRef.current = null
+      setItems([])
+      setRunning(false)
+      window.location.hash = ''
     }
+    setSessions((prev) => prev.filter((s) => s.sessionId !== id))
   }
 
   const showScrim = narrow && (sessionsOpen || catalogOpen)
