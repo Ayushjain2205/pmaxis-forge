@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   AGENT_PRESETS,
   groupByPreset,
@@ -54,6 +54,22 @@ export function AgentRail({
   useEffect(() => {
     void listSessions().then((rows) => setSessions(rows))
   }, [refreshTrigger])
+
+  const deleteRef = useRef(onDeleteSession)
+  deleteRef.current = onDeleteSession
+
+  useEffect(() => {
+    function handleDelete(e: Event) {
+      const target = e.target as HTMLElement
+      const sessionId = target?.getAttribute?.('data-delete-session')
+      if (!sessionId) return
+      e.preventDefault()
+      e.stopPropagation()
+      deleteRef.current(sessionId)
+    }
+    document.addEventListener('click', handleDelete, true)
+    return () => document.removeEventListener('click', handleDelete, true)
+  }, [])
 
   const groups = groupByPreset(sessions)
 
@@ -135,6 +151,7 @@ export function AgentRail({
                     <div
                       key={s.sessionId}
                       className={`session-row ${activeSessionId === s.sessionId ? 'active' : ''}`}
+                      data-session-id={s.sessionId}
                     >
                       <button
                         type="button"
@@ -149,17 +166,8 @@ export function AgentRail({
                       </button>
                       <span
                         className="session-delete-btn"
-                        role="button"
-                        tabIndex={0}
+                        data-delete-session={s.sessionId}
                         title="Delete thread"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') onDeleteSession(s.sessionId)
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          onDeleteSession(s.sessionId)
-                        }}
                       >
                         ✕
                       </span>
